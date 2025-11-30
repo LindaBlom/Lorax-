@@ -1,9 +1,4 @@
 main();
-//
-// start here
-//
-
-
 
 function main() {
   const canvas = document.querySelector("#gl-canvas");
@@ -182,13 +177,22 @@ function render(){
   }
 
 function updateCamera(){
-    const speed = 0.2;
+    let speed = 0.2;
 
     // forward riktning (0,0,-1) när yaw = 0
     const forwardX = 1
     const forwardZ = -1
     const rightX   = 1
     const rightZ   = 0
+
+    if (keys["shift"]) {
+      speed = 2;
+    }
+    else
+    {
+      speed = 0.2;
+    }
+
 
     if (keys["w"]) {
       viewMatrix[14] += speed;
