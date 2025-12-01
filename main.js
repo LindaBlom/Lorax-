@@ -1,19 +1,21 @@
+
 main();
 //
 // start here
 //
+console.log("glMatrix:", glMatrix);
 
+const mat4 = glMatrix.mat4;
+const vec3 = glMatrix.vec3;
 
-
+// Load shaders, initialize scene
 function main() {
   const canvas = document.querySelector("#gl-canvas");
   const gl = canvas.getContext("webgl2");
-
-  if (gl === null) {
-    alert("Unable to initialize WebGL. Your browser or machine may not support it.");
+  if (!gl) {
+    alert("No webgl for you!");
     return;
   }
-
   Promise.all([
     fetch("shaders/grass.vert").then(r => r.text()),
     fetch("shaders/grass.frag").then(r => r.text())
@@ -50,35 +52,48 @@ function initializeScene(gl, vertSource, fragSource) {
   const uGrassLoc = gl.getUniformLocation(floorShader, "uGrass");
 
   // --- Matrices ---
-  const modelMatrix = new Float32Array(16);
-  const viewMatrix = new Float32Array(16);
-  const projMatrix = new Float32Array(16);
-  mat4Identity(modelMatrix);
-  mat4Identity(viewMatrix);
-  mat4Identity(projMatrix);
-
-
+  const viewMatrix = mat4.create();
+  const modelMatrix = mat4.create();
+  const projMatrix = mat4.create();
+  
 // ---- perspective and camera setup ----
-
   // Move plane away from camera
   modelMatrix[14] = -5.0;
-
   // Camera at z = 20 looking towards -Z
-  viewMatrix[12] = 0.0;
-  viewMatrix[13] = 0.0;
-  viewMatrix[14] = -20.0;
+  mat4.translate(viewMatrix, viewMatrix, [0.0, 0.0, -20.0]);
+  
+  const out = projMatrix;
+  const fovy = Math.PI / 4; // 45 degrees
+  const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+  const near = 0.1;
+  const far = 100.0;
 
-  mat4Perspective(projMatrix, Math.PI / 4, 1000 / 600, 0.1, 100.0);
+  mat4.perspective(out, fovy, aspect, near, far);
+  console.log(out);
+ 
+
+//mat4Perspective(projMatrix, Math.PI / 4, 1000 / 600, 0.1, 100.0);
   let camPos = { x: 0, y: 5, z: 20 };  // startposition
-  let yaw = 0;                         // 0 = titta mot -Z
+  let yaw = 0;  
+  let pitch = 0                       // 0 = titta mot -Z
   const keys = {};
 
   window.addEventListener("keydown", (e) => {
-    keys[e.key.toLowerCase()] = true;
+    const key = e.key;
+    if (key.length === 1) {
+      keys[key.toLowerCase()] = true;   // w, a, s, d etc
+    } else {
+      keys[key.toLowerCase()] = true;   // arrowup, arrowdown, ...
+    }
   });
 
   window.addEventListener("keyup", (e) => {
-    keys[e.key.toLowerCase()] = false;
+    const key = e.key;
+    if (key.length === 1) {
+      keys[key.toLowerCase()] = false;
+    } else {
+      keys[key.toLowerCase()] = false;
+    }
   });
 
   // --- Geometry: x, y, z, u, v ---
@@ -163,87 +178,88 @@ function initializeScene(gl, vertSource, fragSource) {
     );
 
     gl.generateMipmap(gl.TEXTURE_2D);
-
     render();
-    //drawScene(); // draw once texture is ready
   };
-  image.src = "textures/grass.png"; // <-- put your grass image here
+  image.src = "textures/grass.png"; 
 
   // Optional: draw once with the 1x1 pixel (solid green) before real texture loads
-  // drawScene();
-  //render()
+  // DrawScene();
+  // Render()
 
 
-function render(){
-    updateCamera();     // WASD, mus, etc
-    //gl.uniformMatrix4fv(uViewLoc, false, viewMatrix);
-    drawScene();
-    requestAnimationFrame(render);
+  function render(){
+      updateCamera();     // WASD, mus, etc
+      //gl.uniformMatrix4fv(uViewLoc, false, viewMatrix);
+      drawScene();
+      requestAnimationFrame(render);
+    }
+
+  function updateCamera(){
+      const speed = 0.2;
+      const rotationSpeed = 0.02;
+
+      // forward riktning (0,0,-1) när yaw = 0
+      const forwardX = -Math.sin(yaw);
+      const forwardZ = -Math.cos(yaw);
+
+      // right riktning (1,0,0) när yaw = 0
+      const rightX = Math.cos(yaw);
+      const rightZ = -Math.sin(yaw);
+
+      if (keys["w"]) viewMatrix[14] += speed;      
+      if (keys["s"]) viewMatrix[14] -= speed;
+      if (keys["a"]) viewMatrix[12] += speed;
+      if (keys["d"]) viewMatrix[12] -= speed;
+      if (keys["e"]) viewMatrix[13] -= speed;
+      if (keys["q"]) viewMatrix[13] += speed;
+
+      if (keys["arrowup"]) {
+        let rotationMatrix = mat4.create();
+        mat4.fromRotation(rotationMatrix, -rotationSpeed, [1, 0, 0]);  
+        mat4.multiply(viewMatrix, viewMatrix, rotationMatrix);
+      }
+      if (keys["arrowdown"]) {
+        let rotationMatrix = mat4.create();
+        mat4.fromRotation(rotationMatrix, rotationSpeed, [1, 0, 0]);  
+        mat4.multiply(viewMatrix, viewMatrix, rotationMatrix);
+      }
+      if (keys["arrowleft"]) {
+        let rotationMatrix = mat4.create();
+        mat4.fromRotation(rotationMatrix, -rotationSpeed, [0, 1, 0]);  
+        mat4.multiply(viewMatrix, viewMatrix, rotationMatrix);
+      }
+      if (keys["arrowright"]) {
+        let rotationMatrix = mat4.create();
+        mat4.fromRotation(rotationMatrix, -rotationSpeed, [0, 0, 1]);  
+        mat4.multiply(viewMatrix, viewMatrix, rotationMatrix);
+      }   
+
+
+      // Bygg view-matris så kameran tittar på origo (0,0,0)
+    
   }
 
-function updateCamera(){
-    const speed = 0.2;
+  function drawScene() {
+      gl.useProgram(floorShader);
 
-    // forward riktning (0,0,-1) när yaw = 0
-    const forwardX = 1
-    const forwardZ = -1
-    const rightX   = 1
-    const rightZ   = 0
+      gl.uniformMatrix4fv(uModelLoc, false, modelMatrix);
+      gl.uniformMatrix4fv(uViewLoc, false, viewMatrix);
+      gl.uniformMatrix4fv(uProjLoc, false, projMatrix);
 
-    if (keys["w"]) {
-      viewMatrix[14] += speed;
-      //camPos.x += forwardX * speed;
-      //camPos.z += forwardZ * speed;
-    }
-    if (keys["s"]) {
-      viewMatrix[14] -= speed;
-      //camPos.x -= forwardX * speed;
-      //camPos.z -= forwardZ * speed;
-    }
-    if (keys["a"]) {
-      viewMatrix[12] += speed;
-      //camPos.x -= rightX * speed;
-      //camPos.z -= rightZ * speed;
-    }
-    if (keys["d"]) {
-      viewMatrix[12] -= speed;
-      //camPos.x += rightX * speed;
-      //camPos.z += rightZ * speed;
-    }
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, grassTexture);
+      gl.uniform1i(uGrassLoc, 0);
 
-    // Bygg view-matris så kameran tittar på origo (0,0,0)
-    //mat4LookAt(
-    //  viewMatrix,
-    //  camPos.x, camPos.y, camPos.z,
-    //  0.0,      0.0,      0.0,
-    //  0.0,      1.0,      0.0
-    //);
-    //gl.uniformMatrix4fv(uViewLoc, false, viewMatrix);
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+      gl.enable(gl.DEPTH_TEST);
+      gl.clearColor(0.0, 0.0, 0.0, 1.0);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, floorEBO);
+      gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+  }  
 
 }
-
-function drawScene() {
-    gl.useProgram(floorShader);
-
-    gl.uniformMatrix4fv(uModelLoc, false, modelMatrix);
-    gl.uniformMatrix4fv(uViewLoc, false, viewMatrix);
-    gl.uniformMatrix4fv(uProjLoc, false, projMatrix);
-
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, grassTexture);
-    gl.uniform1i(uGrassLoc, 0);
-
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-    gl.enable(gl.DEPTH_TEST);
-    gl.clearColor(0.0, 0.0, 0.0, 1.0);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-
-    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, floorEBO);
-    gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-}  
-
-}
-
 
 
 function mat4LookAt(out,
