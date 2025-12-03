@@ -2,6 +2,9 @@
 precision highp float;
 
 in vec2 vTexCoord;
+in vec3 vNormal;
+in vec3 vWorldPos;
+
 out vec4 outColor;
 
 uniform sampler2D uGrass;

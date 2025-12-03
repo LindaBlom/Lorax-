@@ -45,6 +45,10 @@ function initializeScene(gl, vertSource, fragSource) {
 	gl.attachShader(floorShader, fragShader);
 	gl.linkProgram(floorShader);
 
+	const uLightDirLoc      = gl.getUniformLocation(floorShader, "uLightDir");
+	const uLightColorLoc    = gl.getUniformLocation(floorShader, "uLightColor");
+	const uAmbientColorLoc  = gl.getUniformLocation(floorShader, "uAmbientColor");
+
 	if (!gl.getProgramParameter(floorShader, gl.LINK_STATUS)) {
 		console.error("Program linking failed:", gl.getProgramInfoLog(floorShader));
 		return;
@@ -103,6 +107,7 @@ function initializeScene(gl, vertSource, fragSource) {
 	canvas.addEventListener("mousedown", (e) => {
 		if (e.button === 0) {
 			isDragging = true;
+			canvas.classList.add("dragging");
 			lastMouseX = e.clientX;
 			lastMouseY = e.clientY;
 		}
@@ -111,6 +116,7 @@ function initializeScene(gl, vertSource, fragSource) {
 	canvas.addEventListener("mouseup", (e) => {
 		if (e.button === 0) {
 			isDragging = false;
+			canvas.classList.remove("dragging");
 		}
 	});
 
@@ -272,10 +278,6 @@ function initializeScene(gl, vertSource, fragSource) {
 			mat4.fromRotation(rotationMatrix, rotationSpeed, [0, 0, 1]);  
 			mat4.multiply(viewMatrix, viewMatrix, rotationMatrix);
 		}   
-
-
-		// Bygg view-matris så kameran tittar på origo (0,0,0)
-		
 	}
 
 	function drawScene() {
@@ -319,7 +321,6 @@ function initializeScene(gl, vertSource, fragSource) {
 			}
 		}
 	}  
-
 }
 
 function compileShader(gl, source, type) {
