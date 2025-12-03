@@ -1,366 +1,396 @@
 
 main();
-//
-// start here
-//
 console.log("glMatrix:", glMatrix);
 
 const mat4 = glMatrix.mat4;
 const vec3 = glMatrix.vec3;
 
-// Load shaders, initialize scene
 function main() {
-  const canvas = document.querySelector("#gl-canvas");
-  const gl = canvas.getContext("webgl2");
-  if (!gl) {
-    alert("No webgl for you!");
-    return;
-  }
-  Promise.all([
-    fetch("shaders/grass.vert").then(r => r.text()),
-    fetch("shaders/grass.frag").then(r => r.text())
-  ])
-    .then(([vertSource, fragSource]) => {
-      initializeScene(gl, vertSource, fragSource);
-    })
-    .catch(err => console.error("Failed to load shaders:", err));
+	const canvas = document.querySelector("#gl-canvas");
+	const gl = canvas.getContext("webgl2");
+	if (!gl) {
+		alert("No webgl for you!");
+		return;
+	}
+
+	function resizeCanvas() {
+		canvas.width = canvas.clientWidth;
+		canvas.height = canvas.clientHeight;
+		gl.viewport(0, 0, canvas.width, canvas.height);
+	}
+
+	resizeCanvas();
+	window.addEventListener("resize", resizeCanvas);
+
+	Promise.all([
+		fetch("shaders/grass.vert").then(r => r.text()),
+		fetch("shaders/grass.frag").then(r => r.text())
+	])
+		.then(([vertSource, fragSource]) => {
+			initializeScene(gl, vertSource, fragSource);
+		})
+		.catch(err => console.error("Failed to load shaders:", err));
 }
 
 function initializeScene(gl, vertSource, fragSource) {
-  const vertShader = compileShader(gl, vertSource, gl.VERTEX_SHADER);
-  const fragShader = compileShader(gl, fragSource, gl.FRAGMENT_SHADER);
+	const vertShader = compileShader(gl, vertSource, gl.VERTEX_SHADER);
+	const fragShader = compileShader(gl, fragSource, gl.FRAGMENT_SHADER);
 
-  if (!vertShader || !fragShader) {
-    console.error("Aborting: shader compilation error.");
-    return;
-  }
+	if (!vertShader || !fragShader) {
+		console.error("Aborting: shader compilation error.");
+		return;
+	}
 
-  const floorShader = gl.createProgram();
-  gl.attachShader(floorShader, vertShader);
-  gl.attachShader(floorShader, fragShader);
-  gl.linkProgram(floorShader);
+	const floorShader = gl.createProgram();
+	gl.attachShader(floorShader, vertShader);
+	gl.attachShader(floorShader, fragShader);
+	gl.linkProgram(floorShader);
 
-  if (!gl.getProgramParameter(floorShader, gl.LINK_STATUS)) {
-    console.error("Program linking failed:", gl.getProgramInfoLog(floorShader));
-    return;
-  }
+	if (!gl.getProgramParameter(floorShader, gl.LINK_STATUS)) {
+		console.error("Program linking failed:", gl.getProgramInfoLog(floorShader));
+		return;
+	}
 
-  // --- Uniform locations ---
-  const uModelLoc = gl.getUniformLocation(floorShader, "uModel");
-  const uViewLoc = gl.getUniformLocation(floorShader, "uView");
-  const uProjLoc = gl.getUniformLocation(floorShader, "uProj");
-  const uGrassLoc = gl.getUniformLocation(floorShader, "uGrass");
+	// --- Uniform locations ---
+	const uModelLoc = gl.getUniformLocation(floorShader, "uModel");
+	const uViewLoc = gl.getUniformLocation(floorShader, "uView");
+	const uProjLoc = gl.getUniformLocation(floorShader, "uProj");
+	const uGrassLoc = gl.getUniformLocation(floorShader, "uGrass");
 
-  // --- Matrices ---
-  const viewMatrix = mat4.create();
-  const modelMatrix = mat4.create();
-  const projMatrix = mat4.create();
-  
-// ---- perspective and camera setup ----
-  // Move plane away from camera
-  modelMatrix[14] = -5.0;
-  // Camera at z = 20 looking towards -Z
-  mat4.translate(viewMatrix, viewMatrix, [0.0, 0.0, -20.0]);
-  
-  const out = projMatrix;
-  const fovy = Math.PI / 4; // 45 degrees
-  const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
-  const near = 0.1;
-  const far = 100.0;
+	const uSeedLoc = gl.getUniformLocation(floorShader, "uSeed");
 
-  mat4.perspective(out, fovy, aspect, near, far);
-  console.log(out);
+	gl.useProgram(floorShader);
+	gl.uniform1f(uSeedLoc, Math.random() * 100.0);
+
+	// --- Matrices ---
+	const viewMatrix = mat4.create();
+	const modelMatrix = mat4.create();
+	const projMatrix = mat4.create();
+	
+	// ---- perspective and camera setup ----
+	// Move plane away from camera
+	modelMatrix[14] = -5.0;
+	// Camera at z = 20 looking towards -Z
+	mat4.translate(viewMatrix, viewMatrix, [0.0, 0.0, -20.0]);
+	
+	const out = projMatrix;
+	const fovy = Math.PI / 4; // 45 degrees
+	const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+	const near = 0.1;
+	const far = 100.0;
+
+	mat4.perspective(out, fovy, aspect, near, far);
+	console.log(out);
  
 
-//mat4Perspective(projMatrix, Math.PI / 4, 1000 / 600, 0.1, 100.0);
-  let camPos = { x: 0, y: 5, z: 20 };  // startposition
-  let yaw = 0;  
-  let pitch = 0                       // 0 = titta mot -Z
-  const keys = {};
+	let camPos = { x: 0, y: 5, z: 20 };  // startposition
+	let yaw = 0;  
+	let pitch = 0                       // 0 = titta mot -Z
+	const keys = {};
 
-  window.addEventListener("keydown", (e) => {
-    const key = e.key;
-    if (key.length === 1) {
-      keys[key.toLowerCase()] = true;   // w, a, s, d etc
-    } else {
-      keys[key.toLowerCase()] = true;   // arrowup, arrowdown, ...
-    }
-  });
+	window.addEventListener("keydown", (e) => {
+		const key = e.key;
+		if (key.length === 1) {
+			keys[key.toLowerCase()] = true;   // w, a, s, d etc
+		} else {
+			keys[key.toLowerCase()] = true;   // arrowup, arrowdown, ...
+		}
+	});
 
-  window.addEventListener("keyup", (e) => {
-    const key = e.key;
-    if (key.length === 1) {
-      keys[key.toLowerCase()] = false;
-    } else {
-      keys[key.toLowerCase()] = false;
-    }
-  });
+	window.addEventListener("keyup", (e) => {
+		const key = e.key;
+		if (key.length === 1) {
+			keys[key.toLowerCase()] = false;
+		} else {
+			keys[key.toLowerCase()] = false;
+		}
+	});
 
-  // --- Geometry: x, y, z, u, v ---
-  const floorVertices = new Float32Array([
-    //  x,   y,  z,   u,  v
-    -10, -10, 0,   0, 0,
-     10, -10, 0,   5, 0,
-     10,  10, 0,   5, 5,
-    -10,  10, 0,   0, 5
-  ]);
+	
+	// --- Geometry: x, y, z, u, v ---
+	const floorVertices = new Float32Array([
+		//  x,   y,  z,   u,  v
+		-10, -10, 0,   0, 0,
+		 10, -10, 0,   5, 0,
+		 10,  10, 0,   5, 5,
+		-10,  10, 0,   0, 5
+	]);
 
-  const floorIndices = new Uint16Array([0, 1, 2, 0, 2, 3]);
+	const floorIndices = new Uint16Array([0, 1, 2, 0, 2, 3]);
 
-  const floorVBO = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, floorVBO);
-  gl.bufferData(gl.ARRAY_BUFFER, floorVertices, gl.STATIC_DRAW);
+	const floorVBO = gl.createBuffer();
+	gl.bindBuffer(gl.ARRAY_BUFFER, floorVBO);
+	gl.bufferData(gl.ARRAY_BUFFER, floorVertices, gl.STATIC_DRAW);
 
-  const floorEBO = gl.createBuffer();
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, floorEBO);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, floorIndices, gl.STATIC_DRAW);
+	const floorEBO = gl.createBuffer();
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, floorEBO);
+	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, floorIndices, gl.STATIC_DRAW);
 
-  gl.useProgram(floorShader);
-  gl.bindBuffer(gl.ARRAY_BUFFER, floorVBO);
+	gl.useProgram(floorShader);
+	gl.bindBuffer(gl.ARRAY_BUFFER, floorVBO);
 
-  // Position attribute (location = 0)
-  gl.vertexAttribPointer(
-    0,        // index
-    3,        // x,y,z
-    gl.FLOAT,
-    false,
-    5 * 4,    // stride: 5 floats * 4 bytes
-    0         // offset
-  );
-  gl.enableVertexAttribArray(0);
+	// Position attribute (location = 0)
+	gl.vertexAttribPointer(
+		0,        // index
+		3,        // x,y,z
+		gl.FLOAT,
+		false,
+		5 * 4,    // stride: 5 floats * 4 bytes
+		0         // offset
+	);
+	gl.enableVertexAttribArray(0);
 
-  // Texcoord attribute (location = 1)
-  gl.vertexAttribPointer(
-    1,        // index
-    2,        // u,v
-    gl.FLOAT,
-    false,
-    5 * 4,
-    3 * 4     // offset: after 3 floats
-  );
-  gl.enableVertexAttribArray(1);
+	// Texcoord attribute (location = 1)
+	gl.vertexAttribPointer(
+		1,        // index
+		2,        // u,v
+		gl.FLOAT,
+		false,
+		5 * 4,
+		3 * 4     // offset: after 3 floats
+	);
+	gl.enableVertexAttribArray(1);
 
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, floorEBO);
+	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, floorEBO);
 
-  // --- Texture setup ---
-  const grassTexture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, grassTexture);
+	// --- Texture setup ---
+	const grassTexture = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D, grassTexture);
 
-  // Temporary 1x1 green pixel so something exists before image loads
-  const tempPixel = new Uint8Array([0, 255, 0, 255]);
-  gl.texImage2D(
-    gl.TEXTURE_2D,
-    0,
-    gl.RGBA,
-    1,
-    1,
-    0,
-    gl.RGBA,
-    gl.UNSIGNED_BYTE,
-    tempPixel
-  );
+	// Temporary 1x1 green pixel so something exists before image loads
+	const tempPixel = new Uint8Array([0, 255, 0, 255]);
+	gl.texImage2D(
+		gl.TEXTURE_2D,
+		0,
+		gl.RGBA,
+		1,
+		1,
+		0,
+		gl.RGBA,
+		gl.UNSIGNED_BYTE,
+		tempPixel
+	);
 
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
-  const image = new Image();
-  image.onload = function () {
-    gl.bindTexture(gl.TEXTURE_2D, grassTexture);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      image
-    );
+	const image = new Image();
+	image.onload = function () {
+		gl.bindTexture(gl.TEXTURE_2D, grassTexture);
+		gl.texImage2D(
+			gl.TEXTURE_2D,
+			0,
+			gl.RGBA,
+			gl.RGBA,
+			gl.UNSIGNED_BYTE,
+			image
+		);
 
-    gl.generateMipmap(gl.TEXTURE_2D);
-    render();
-  };
-  image.src = "textures/grass.png"; 
+		gl.generateMipmap(gl.TEXTURE_2D);
+		render();
+	};
+	image.src = "textures/grass.png"; 
 
-  // Optional: draw once with the 1x1 pixel (solid green) before real texture loads
-  // DrawScene();
-  // Render()
-
-
-  function render(){
-      updateCamera();     // WASD, mus, etc
-      //gl.uniformMatrix4fv(uViewLoc, false, viewMatrix);
-      drawScene();
-      requestAnimationFrame(render);
-    }
-
-  function updateCamera(){
-      const speed = 0.2;
-      const rotationSpeed = 0.02;
-
-      // forward riktning (0,0,-1) när yaw = 0
-      const forwardX = -Math.sin(yaw);
-      const forwardZ = -Math.cos(yaw);
-
-      // right riktning (1,0,0) när yaw = 0
-      const rightX = Math.cos(yaw);
-      const rightZ = -Math.sin(yaw);
-
-      if (keys["w"]) viewMatrix[14] += speed;      
-      if (keys["s"]) viewMatrix[14] -= speed;
-      if (keys["a"]) viewMatrix[12] += speed;
-      if (keys["d"]) viewMatrix[12] -= speed;
-      if (keys["e"]) viewMatrix[13] -= speed;
-      if (keys["q"]) viewMatrix[13] += speed;
-
-      if (keys["arrowup"]) {
-        let rotationMatrix = mat4.create();
-        mat4.fromRotation(rotationMatrix, -rotationSpeed, [1, 0, 0]);  
-        mat4.multiply(viewMatrix, viewMatrix, rotationMatrix);
-      }
-      if (keys["arrowdown"]) {
-        let rotationMatrix = mat4.create();
-        mat4.fromRotation(rotationMatrix, rotationSpeed, [1, 0, 0]);  
-        mat4.multiply(viewMatrix, viewMatrix, rotationMatrix);
-      }
-      if (keys["arrowleft"]) {
-        let rotationMatrix = mat4.create();
-        mat4.fromRotation(rotationMatrix, -rotationSpeed, [0, 1, 0]);  
-        mat4.multiply(viewMatrix, viewMatrix, rotationMatrix);
-      }
-      if (keys["arrowright"]) {
-        let rotationMatrix = mat4.create();
-        mat4.fromRotation(rotationMatrix, -rotationSpeed, [0, 0, 1]);  
-        mat4.multiply(viewMatrix, viewMatrix, rotationMatrix);
-      }   
+	// Optional: draw once with the 1x1 pixel (solid green) before real texture loads
+	// DrawScene();
+	// Render()
 
 
-      // Bygg view-matris så kameran tittar på origo (0,0,0)
-    
-  }
+	function render(){
+		updateCamera();     // WASD, mus, etc'
+		drawScene();
+		requestAnimationFrame(render);
+	}
 
-  function drawScene() {
-      gl.useProgram(floorShader);
+	function updateCamera(){
+		let speed = 0.2;
+		const rotationSpeed = 0.02;
 
-      gl.uniformMatrix4fv(uModelLoc, false, modelMatrix);
-      gl.uniformMatrix4fv(uViewLoc, false, viewMatrix);
-      gl.uniformMatrix4fv(uProjLoc, false, projMatrix);
+		// forward riktning (0,0,-1) när yaw = 0
+		const forwardX = -Math.sin(yaw);
+		const forwardZ = -Math.cos(yaw);
 
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, grassTexture);
-      gl.uniform1i(uGrassLoc, 0);
+		// right riktning (1,0,0) när yaw = 0
+		const rightX = Math.cos(yaw);
+		const rightZ = -Math.sin(yaw);
 
-      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-      gl.enable(gl.DEPTH_TEST);
-      gl.clearColor(0.0, 0.0, 0.0, 1.0);
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		if (keys["shift"]) speed = 0.4;
+		else speed = 0.2;
 
-      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, floorEBO);
-      gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-  }  
+		if (keys["w"]) viewMatrix[14] += speed;      
+		if (keys["s"]) viewMatrix[14] -= speed;
+		if (keys["a"]) viewMatrix[12] += speed;
+		if (keys["d"]) viewMatrix[12] -= speed;
+		if (keys["e"]) viewMatrix[13] -= speed;
+		if (keys["q"]) viewMatrix[13] += speed;
+
+		if (keys["arrowup"]) {
+			let rotationMatrix = mat4.create();
+			mat4.fromRotation(rotationMatrix, -rotationSpeed, [1, 0, 0]);  
+			mat4.multiply(viewMatrix, viewMatrix, rotationMatrix);
+		}
+		if (keys["arrowdown"]) {
+			let rotationMatrix = mat4.create();
+			mat4.fromRotation(rotationMatrix, rotationSpeed, [1, 0, 0]);  
+			mat4.multiply(viewMatrix, viewMatrix, rotationMatrix);
+		}
+		if (keys["arrowleft"]) {
+			let rotationMatrix = mat4.create();
+			mat4.fromRotation(rotationMatrix, -rotationSpeed, [0, 1, 0]);  
+			mat4.multiply(viewMatrix, viewMatrix, rotationMatrix);
+		}
+		if (keys["arrowright"]) {
+			let rotationMatrix = mat4.create();
+			mat4.fromRotation(rotationMatrix, rotationSpeed, [0, 1, 0]);  
+			mat4.multiply(viewMatrix, viewMatrix, rotationMatrix);
+		}   
+
+
+		// Bygg view-matris så kameran tittar på origo (0,0,0)
+		
+	}
+
+	function drawScene() {
+		gl.useProgram(floorShader);
+
+		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+		gl.enable(gl.DEPTH_TEST);
+		gl.clearColor(0.45, 0.75, 1.0, 1.0);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+		gl.uniformMatrix4fv(uViewLoc, false, viewMatrix);
+		gl.uniformMatrix4fv(uProjLoc, false, projMatrix);
+
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, grassTexture);
+		gl.uniform1i(uGrassLoc, 0);
+
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, floorEBO);
+
+		const tileSize = 20.0;     // your quad covers -10..10 ⇒ size 20
+		const gridRadius = 4;      // draws (2*4+1)^2 = 81 tiles
+
+		for (let gy = -gridRadius; gy <= gridRadius; gy++) {
+			for (let gx = -gridRadius; gx <= gridRadius; gx++) {
+
+				// start from your original modelMatrix (which has z = -5)
+				const tileModel = mat4.clone(modelMatrix);
+
+				// offset this tile in X/Y by whole-tile steps
+				mat4.translate(tileModel, tileModel, [gx * tileSize, gy * tileSize, 0.0]);
+
+				gl.uniformMatrix4fv(uModelLoc, false, tileModel);
+
+				// draw the same quad geometry at this offset
+				gl.drawElements(
+					gl.TRIANGLES,
+					floorIndices.length,
+					gl.UNSIGNED_SHORT,
+					0
+				);
+			}
+		}
+	}  
 
 }
-
-
-function mat4LookAt(out,
-  eyeX, eyeY, eyeZ,
-  centerX, centerY, centerZ,
-  upX, upY, upZ
-) {
-  let x0, x1, x2, y0, y1, y2, z0, z1, z2;
-  let len;
-
-  // z-axeln = eye - center
-  z0 = eyeX - centerX;
-  z1 = eyeY - centerY;
-  z2 = eyeZ - centerZ;
-
-  len = Math.hypot(z0, z1, z2);
-  if (len === 0) {
-    z2 = 1;
-  } else {
-    z0 /= len;
-    z1 /= len;
-    z2 /= len;
-  }
-
-  // x-axeln = up × z
-  x0 = upY * z2 - upZ * z1;
-  x1 = upZ * z0 - upX * z2;
-  x2 = upX * z1 - upY * z0;
-
-  len = Math.hypot(x0, x1, x2);
-  if (len === 0) {
-    // om up parallell med z, välj alternativ axel
-    if (Math.abs(upZ) === 1) {
-      x0 = 0; x1 = 1; x2 = 0;
-    } else {
-      x0 = 0; x1 = 0; x2 = 1;
-    }
-  } else {
-    x0 /= len;
-    x1 /= len;
-    x2 /= len;
-  }
-
-  // y-axeln = z × x
-  y0 = z1 * x2 - z2 * x1;
-  y1 = z2 * x0 - z0 * x2;
-  y2 = z0 * x1 - z1 * x0;
-
-  out[0] = x0; out[1] = y0; out[2]  = z0;  out[3]  = 0;
-  out[4] = x1; out[5] = y1; out[6]  = z1;  out[7]  = 0;
-  out[8] = x2; out[9] = y2; out[10] = z2;  out[11] = 0;
-
-  out[12] = -(x0 * eyeX + x1 * eyeY + x2 * eyeZ);
-  out[13] = -(y0 * eyeX + y1 * eyeY + y2 * eyeZ);
-  out[14] = -(z0 * eyeX + z1 * eyeY + z2 * eyeZ);
-  out[15] = 1;
-}
-
-
 
 function compileShader(gl, source, type) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
+	const shader = gl.createShader(type);
+	gl.shaderSource(shader, source);
+	gl.compileShader(shader);
 
-  if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    console.error("Shader compilation failed:", gl.getShaderInfoLog(shader));
-    gl.deleteShader(shader);
-    return null;
-  }
+	if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+		console.error("Shader compilation failed:", gl.getShaderInfoLog(shader));
+		gl.deleteShader(shader);
+		return null;
+	}
 
-  return shader;
-}
-
-function mat4Identity(m) {
-  for (let i = 0; i < 16; i++) m[i] = 0.0;
-  m[0] = m[5] = m[10] = m[15] = 1.0;
-}
-
-function mat4Perspective(out, fovy, aspect, near, far) {
-  const f = 1.0 / Math.tan(fovy / 2.0);
-  out[0] = f / aspect;
-  out[1] = 0.0;
-  out[2] = 0.0;
-  out[3] = 0.0;
-
-  out[4] = 0.0;
-  out[5] = f;
-  out[6] = 0.0;
-  out[7] = 0.0;
-
-  out[8]  = 0.0;
-  out[9]  = 0.0;
-  out[10] = (far + near) / (near - far);
-  out[11] = -1.0;
-
-  out[12] = 0.0;
-  out[13] = 0.0;
-  out[14] = (2.0 * far * near) / (near - far);
-  out[15] = 0.0;
+	return shader;
 }
 
 
+/*function mat4LookAt(out,
+	eyeX, eyeY, eyeZ,
+	centerX, centerY, centerZ,
+	upX, upY, upZ
+) {
+	let x0, x1, x2, y0, y1, y2, z0, z1, z2;
+	let len;
 
+	// z-axeln = eye - center
+	z0 = eyeX - centerX;
+	z1 = eyeY - centerY;
+	z2 = eyeZ - centerZ;
+
+	len = Math.hypot(z0, z1, z2);
+	if (len === 0) {
+		z2 = 1;
+	} else {
+		z0 /= len;
+		z1 /= len;
+		z2 /= len;
+	}
+
+	// x-axeln = up × z
+	x0 = upY * z2 - upZ * z1;
+	x1 = upZ * z0 - upX * z2;
+	x2 = upX * z1 - upY * z0;
+
+	len = Math.hypot(x0, x1, x2);
+	if (len === 0) {
+		// om up parallell med z, välj alternativ axel
+		if (Math.abs(upZ) === 1) {
+			x0 = 0; x1 = 1; x2 = 0;
+		} else {
+			x0 = 0; x1 = 0; x2 = 1;
+		}
+	} else {
+		x0 /= len;
+		x1 /= len;
+		x2 /= len;
+	}
+
+	// y-axeln = z × x
+	y0 = z1 * x2 - z2 * x1;
+	y1 = z2 * x0 - z0 * x2;
+	y2 = z0 * x1 - z1 * x0;
+
+	out[0] = x0; out[1] = y0; out[2]  = z0;  out[3]  = 0;
+	out[4] = x1; out[5] = y1; out[6]  = z1;  out[7]  = 0;
+	out[8] = x2; out[9] = y2; out[10] = z2;  out[11] = 0;
+
+	out[12] = -(x0 * eyeX + x1 * eyeY + x2 * eyeZ);
+	out[13] = -(y0 * eyeX + y1 * eyeY + y2 * eyeZ);
+	out[14] = -(z0 * eyeX + z1 * eyeY + z2 * eyeZ);
+	out[15] = 1;
+}*/
+
+/*function mat4Identity(m) {
+	for (let i = 0; i < 16; i++) m[i] = 0.0;
+	m[0] = m[5] = m[10] = m[15] = 1.0;
+}*/
+
+/*function mat4Perspective(out, fovy, aspect, near, far) {
+	const f = 1.0 / Math.tan(fovy / 2.0);
+	out[0] = f / aspect;
+	out[1] = 0.0;
+	out[2] = 0.0;
+	out[3] = 0.0;
+
+	out[4] = 0.0;
+	out[5] = f;
+	out[6] = 0.0;
+	out[7] = 0.0;
+
+	out[8]  = 0.0;
+	out[9]  = 0.0;
+	out[10] = (far + near) / (near - far);
+	out[11] = -1.0;
+
+	out[12] = 0.0;
+	out[13] = 0.0;
+	out[14] = (2.0 * far * near) / (near - far);
+	out[15] = 0.0;
+}*/
