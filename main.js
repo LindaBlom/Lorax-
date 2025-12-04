@@ -1,3 +1,6 @@
+import { parseOBJ } from "./helpers/parser.js";
+
+
 main();
 
 const mat4 = glMatrix.mat4;
@@ -24,38 +27,91 @@ function main() {
 		fetch("shaders/grass.vert").then(r => r.text()),
 		fetch("shaders/grass.frag").then(r => r.text()),
 		fetch("shaders/sun.vert").then(r => r.text()),
-		fetch("shaders/sun.frag").then(r => r.text())
+		fetch("shaders/sun.frag").then(r => r.text()),
+		fetch("shaders/tree.vert").then(r => r.text()),
+		fetch("shaders/tree.frag").then(r => r.text()),
+		fetch("models/tree.obj").then(r => r.text())
 	])
-		.then(([grassVert, grassFrag, sunVert, sunFrag]) => {
-			initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag);
+		.then(([grassVert, grassFrag, sunVert, sunFrag, treeVert,treeFrag, treeObj]) => {
+			initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert, treeFrag,treeObj);
 		})
 		.catch(err => console.error("Failed to load shaders:", err));
 }
 
-function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag) {
+function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,treeFrag,treeObjText) {
+
+
+
+	// --- TREES -----
+	const treeProgram = gl.createProgram();
+
+	const treeVertShader = compileShader(gl,treeVert, gl.VERTEX_SHADER);
+	const treeFragShader = compileShader(gl,treeFrag, gl.FRAGMENT_SHADER);
+
+	gl.attachShader(treeProgram, treeVertShader);
+	gl.attachShader(treeProgram,treeFragShader);
+	gl.linkProgram(treeProgram);
+
+	if(!gl.getProgramParameter(treeProgram, gl.LINK_STATUS)){
+		console.log(gl.getShaderInfoLog(treeVertShader))
+		console.log(gl.getShaderInfoLog(treeFragShader))
+	}
+	gl.useProgram(treeProgram);
+
+
+	const treeData = parseOBJ(treeObjText);
+
+    const treeVBO = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, treeVBO);
+    gl.bufferData(gl.ARRAY_BUFFER, treeData.positions, gl.STATIC_DRAW);
+
+    const treeUVBO = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, treeUVBO);
+    gl.bufferData(gl.ARRAY_BUFFER, treeData.texCoords, gl.STATIC_DRAW);
+
+    const treeNBO = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, treeNBO);
+    gl.bufferData(gl.ARRAY_BUFFER, treeData.normals, gl.STATIC_DRAW);
+
+    //// Hämta locations (om du inte redan gjort det)
+    const uTreeModelLoc = gl.getUniformLocation(treeProgram, "uModel");
+    const uTreeViewLoc  = gl.getUniformLocation(treeProgram, "uView");
+    const uTreeProjLoc  = gl.getUniformLocation(treeProgram, "uProj");
+    
+
+
+
+	// ---- FLOOR -------
+	const floorProgram = gl.createProgram();
+	
 	const grassVertShader = compileShader(gl, grassVert, gl.VERTEX_SHADER);
 	const grassFragShader = compileShader(gl, grassFrag, gl.FRAGMENT_SHADER);
 
-	const floorShader = gl.createProgram();
-	gl.attachShader(floorShader, grassVertShader);
-	gl.attachShader(floorShader, grassFragShader);
-	gl.linkProgram(floorShader);
+	gl.attachShader(floorProgram, grassVertShader);
+	gl.attachShader(floorProgram, grassFragShader);
+	gl.linkProgram(floorProgram);
 
-	const uLightDirLoc      = gl.getUniformLocation(floorShader, "uLightDir");
-	const uLightColorLoc    = gl.getUniformLocation(floorShader, "uLightColor");
-	const uAmbientColorLoc  = gl.getUniformLocation(floorShader, "uAmbientColor");
+	if(!gl.getProgramParameter(floorProgram, gl.LINK_STATUS)){
+		console.log(gl.getShaderInfoLog(grassVertShader))
+		console.log(gl.getShaderInoLog(grassFragShader))
+	}
 
-	// --- Uniform locations ---
-	const uModelLoc = gl.getUniformLocation(floorShader, "uModel");
-	const uViewLoc = gl.getUniformLocation(floorShader, "uView");
-	const uProjLoc = gl.getUniformLocation(floorShader, "uProj");
-	const uGrassLoc = gl.getUniformLocation(floorShader, "uGrass");
+	const uLightDirLoc     = gl.getUniformLocation(floorProgram, "uLightDir");
+	const uLightColorLoc   = gl.getUniformLocation(floorProgram, "uLightColor");
+	const uAmbientColorLoc = gl.getUniformLocation(floorProgram, "uAmbientColor");
 
-	const uSeedLoc = gl.getUniformLocation(floorShader, "uSeed");
+	const uModelLoc 	= gl.getUniformLocation(floorProgram, "uModel");
+	const uViewLoc 		= gl.getUniformLocation(floorProgram, "uView");
+	const uProjLoc 		= gl.getUniformLocation(floorProgram, "uProj");
+	const uGrassLoc 	= gl.getUniformLocation(floorProgram, "uGrass");
 
-	gl.useProgram(floorShader);
+	const uSeedLoc 		= gl.getUniformLocation(floorProgram, "uSeed");
+
+	gl.useProgram(floorProgram);
+
 	const seed = Math.random() * 100.0;
 	gl.uniform1f(uSeedLoc, seed);
+
 	const sunDir = vec3.fromValues(0.3, 0.3, 1.0);
 	vec3.normalize(sunDir, sunDir);
 
@@ -65,18 +121,27 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag) {
 	gl.uniform3f(uLightColorLoc,   1.0, 0.95, 0.85);  // sunlight
 	gl.uniform3f(uAmbientColorLoc, 0.25, 0.35, 0.45); // sky/ambient
 
+
+
+	// ---- SUN -------
+	const sunProgram = gl.createProgram();
+
 	const sunVertShader = compileShader(gl, sunVert, gl.VERTEX_SHADER);
 	const sunFragShader = compileShader(gl, sunFrag, gl.FRAGMENT_SHADER);
 
-	const sunShader = gl.createProgram();
-	gl.attachShader(sunShader, sunVertShader);
-	gl.attachShader(sunShader, sunFragShader);
-	gl.linkProgram(sunShader);
+	gl.attachShader(sunProgram, sunVertShader);
+	gl.attachShader(sunProgram, sunFragShader);
+	gl.linkProgram(sunProgram);
 
-	const uSunModelLoc = gl.getUniformLocation(sunShader, "uModel");
-	const uSunViewLoc  = gl.getUniformLocation(sunShader, "uView");
-	const uSunProjLoc  = gl.getUniformLocation(sunShader, "uProj");
-	const uSunColorLoc = gl.getUniformLocation(sunShader, "uSunColor");
+	if(!gl.getProgramParameter(sunProgram, gl.LINK_STATUS)){
+		console.log(gl.getShaderInfoLog(sunVertShader))
+		console.log(gl.getShaderInoLog(sunFragShader))
+	}
+
+	const uSunModelLoc = gl.getUniformLocation(sunProgram, "uModel");
+	const uSunViewLoc  = gl.getUniformLocation(sunProgram, "uView");
+	const uSunProjLoc  = gl.getUniformLocation(sunProgram, "uProj");
+	const uSunColorLoc = gl.getUniformLocation(sunProgram, "uSunColor");
 
 	const sunModelMatrix = mat4.create();
 	const sunDistance = 80.0;
@@ -276,7 +341,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag) {
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, floorEBO);
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, floorIndices, gl.STATIC_DRAW);
 
-	gl.useProgram(floorShader);
+	gl.useProgram(floorProgram);
 	gl.bindBuffer(gl.ARRAY_BUFFER, floorVBO);
 
 	// Position attribute (location = 0)
@@ -432,8 +497,45 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag) {
 		gl.clearColor(0.45, 0.75, 1.0, 1.0);
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+
+		// ---- draw trees ----
+		gl.useProgram(treeProgram);
+		
+		gl.uniformMatrix4fv(uTreeViewLoc,  false, viewMatrix);
+		gl.uniformMatrix4fv(uTreeProjLoc,  false, projMatrix);
+
+		gl.bindBuffer(gl.ARRAY_BUFFER, treeVBO);
+    	gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+    	gl.enableVertexAttribArray(0);
+
+    	gl.bindBuffer(gl.ARRAY_BUFFER, treeNBO);
+    	gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+    	gl.enableVertexAttribArray(1);
+
+    	gl.bindBuffer(gl.ARRAY_BUFFER, treeUVBO);
+    	gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
+    	gl.enableVertexAttribArray(2);
+
+
+    	const treePositions = [
+            [0, 12],
+            [4, 14],
+            [-6, 16],
+        ];
+
+        treePositions.forEach(([tx, ty]) => {
+            const model = mat4.create();
+            const tz = getHeightAt(tx, ty);
+            mat4.translate(model, model, [tx, ty, tz]);
+			mat4.rotateX(model, model, Math.PI / 2);
+            gl.uniformMatrix4fv(uTreeModelLoc, false, model);
+            gl.drawArrays(gl.TRIANGLES, 0, treeData.vertexCount);
+        });
+
+
+
 		// --- draw sun first ---
-		gl.useProgram(sunShader);
+		gl.useProgram(sunProgram);
 
 		gl.uniformMatrix4fv(uSunViewLoc,  false, viewMatrix);
 		gl.uniformMatrix4fv(uSunProjLoc,  false, projMatrix);
@@ -455,7 +557,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag) {
 
 		gl.disable(gl.BLEND);
 
-		gl.useProgram(floorShader);
+		gl.useProgram(floorProgram);
 
 		gl.uniformMatrix4fv(uViewLoc, false, viewMatrix);
 		gl.uniformMatrix4fv(uProjLoc, false, projMatrix);

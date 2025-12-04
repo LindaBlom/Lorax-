@@ -1,4 +1,5 @@
 #version 300 es
+// eller mediump
 precision highp float;
 
 in vec2 vTexCoord;
