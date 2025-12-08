@@ -6,6 +6,7 @@ layout(location = 1) in vec2 aTexCoord;
 uniform mat4 uModel;
 uniform mat4 uView;
 uniform mat4 uProj;
+uniform mat4 uLightVP;
 
 uniform float uSeed;
 
@@ -30,7 +31,7 @@ float getHeight(vec2 pos) {
     float n = hash(pos * 0.12);
     float noise = (n - 0.5) * 0.25;   // ~[-0.2, 0.2]
 
-    float height = (wave + noise) * 2.0;
+    float height = (wave + noise) * 3.0;
     return height;
 }
 

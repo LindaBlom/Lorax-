@@ -48,15 +48,17 @@ function main() {
 		fetch("shaders/sun.frag").then(r => r.text()),
 		fetch("shaders/tree.vert").then(r => r.text()),
 		fetch("shaders/tree.frag").then(r => r.text()),
+		fetch("shaders/post.vert").then(r => r.text()),
+    	fetch("shaders/bloom.frag").then(r => r.text()),
 		fetch("models/tree.obj").then(r => r.text())
 	])
-		.then(([grassVert, grassFrag, sunVert, sunFrag, treeVert,treeFrag, treeObj]) => {
-			initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert, treeFrag,treeObj);
+		.then(([grassVert, grassFrag, sunVert, sunFrag, treeVert, treeFrag, postVert, bloomFrag, treeObj]) => {
+			initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert, treeFrag, postVert, bloomFrag, treeObj);
 		})
 		.catch(err => console.error("Failed to load shaders:", err));
 }
 
-function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,treeFrag,treeObjText) {
+function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert, treeFrag, postVert, bloomFrag, treeObjText) {
 
 
 
@@ -131,13 +133,15 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 	const seed = Math.random() * 100.0;
 	gl.uniform1f(uSeedLoc, seed);
 
-	const sunDir = vec3.fromValues(0.3, 0.3, 1.0);
+	const sunDir = vec3.fromValues(0.5, 0.5, 1.0);
 	vec3.normalize(sunDir, sunDir);
 
-	gl.uniform3fv(uLightDirLoc, sunDir);
+	const lightDir = vec3.create();
+	vec3.scale(lightDir, sunDir, -1.0);
+	gl.uniform3fv(uLightDirLoc, lightDir);
 
 	// warm-ish sunlight, soft ambient
-	gl.uniform3f(uLightColorLoc,   1.0, 0.95, 0.85);  // sunlight
+	gl.uniform3f(uLightColorLoc,   1.0, 0.99, 0.95);  // sunlight
 	gl.uniform3f(uAmbientColorLoc, 0.25, 0.35, 0.45); // sky/ambient
 
 	// ---- SUN -------
@@ -169,6 +173,100 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 	mat4.translate(sunModelMatrix, sunModelMatrix, sunPos);
 	// make it visible in the sky
 	mat4.scale(sunModelMatrix, sunModelMatrix, [15.0, 15.0, 15.0]);
+
+	// ==== POST-PROCESS / BLOOM ====
+    const postProgram = gl.createProgram();
+    const postVertShader  = compileShader(gl, postVert,  gl.VERTEX_SHADER);
+    const bloomFragShader = compileShader(gl, bloomFrag, gl.FRAGMENT_SHADER);
+
+    gl.attachShader(postProgram, postVertShader);
+    gl.attachShader(postProgram, bloomFragShader);
+    gl.linkProgram(postProgram);
+
+    if (!gl.getProgramParameter(postProgram, gl.LINK_STATUS)) {
+        console.log(gl.getShaderInfoLog(postVertShader));
+        console.log(gl.getShaderInfoLog(bloomFragShader));
+    }
+
+    const uPostSceneLoc = gl.getUniformLocation(postProgram, "uScene");
+
+    // fullscreen quad (NDC positions + texcoords)
+    const quadVerts = new Float32Array([
+        //  x,   y,   u,  v
+        -1, -1,  0,  0,
+         1, -1,  1,  0,
+        -1,  1,  0,  1,
+         1,  1,  1,  1,
+    ]);
+
+    const quadVBO = gl.createBuffer();
+    const quadVAO = gl.createVertexArray();
+
+    gl.bindVertexArray(quadVAO);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadVBO);
+    gl.bufferData(gl.ARRAY_BUFFER, quadVerts, gl.STATIC_DRAW);
+
+    // aPosition (location = 0)
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 4 * 4, 0);
+    gl.enableVertexAttribArray(0);
+    // aTexCoord (location = 1)
+    gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 4 * 4, 2 * 4);
+    gl.enableVertexAttribArray(1);
+
+    gl.bindVertexArray(null);
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+
+    // framebuffer we render the scene into
+    let sceneFBO   = gl.createFramebuffer();
+    let sceneTex   = gl.createTexture();
+    let sceneDepth = gl.createRenderbuffer();
+
+    function resizeSceneTargets() {
+        const w = gl.canvas.width;
+        const h = gl.canvas.height;
+
+        gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+        gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.RGBA,
+            w, h,
+            0,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            null
+        );
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+        gl.bindRenderbuffer(gl.RENDERBUFFER, sceneDepth);
+        gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, w, h);
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFBO);
+        gl.framebufferTexture2D(
+            gl.FRAMEBUFFER,
+            gl.COLOR_ATTACHMENT0,
+            gl.TEXTURE_2D,
+            sceneTex,
+            0
+        );
+        gl.framebufferRenderbuffer(
+            gl.FRAMEBUFFER,
+            gl.DEPTH_ATTACHMENT,
+            gl.RENDERBUFFER,
+            sceneDepth
+        );
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+    }
+
+    // call once now (canvas already resized earlier)
+    resizeSceneTargets();
+
 
 	// --- Matrices ---
 	const viewMatrix = mat4.create();
@@ -244,7 +342,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 	const fovy = Math.PI / 4; // 45 degrees
 	const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
 	const near = 0.1;
-	const far = 100.0;
+	const far = 200.0;
 
 	mat4.perspective(out, fovy, aspect, near, far);
 	addEventListeners(gl, keys, cameraState ,gravityEnabled, verticalVelocity, updateViewMatrix);
@@ -460,6 +558,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 
 
 	function drawScene() {
+		gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFBO);
 		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 		gl.enable(gl.DEPTH_TEST);
 		gl.clearColor(0.45, 0.75, 1.0, 1.0);
@@ -504,7 +603,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 		gl.uniformMatrix4fv(uSunViewLoc,  false, viewMatrix);
 		gl.uniformMatrix4fv(uSunProjLoc,  false, projMatrix);
 		gl.uniformMatrix4fv(uSunModelLoc, false, sunModelMatrix);
-		gl.uniform3f(uSunColorLoc, 1.0, 0.95, 0.8); // warm color
+		gl.uniform3f(uSunColorLoc, 1.0, 0.99, 0.95); // warm color
 
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
@@ -521,6 +620,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 
 		gl.disable(gl.BLEND);
 
+		// --- draw floor / grass ---
 		gl.useProgram(floorProgram);
 
 		gl.uniformMatrix4fv(uViewLoc, false, viewMatrix);
@@ -556,6 +656,22 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 				);
 			}
 		}
+
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		gl.disable(gl.DEPTH_TEST);
+		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+		gl.clearColor(0.0, 0.0, 0.0, 1.0);
+		gl.clear(gl.COLOR_BUFFER_BIT);
+
+		gl.useProgram(postProgram);
+
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+		gl.uniform1i(uPostSceneLoc, 0);
+
+		gl.bindVertexArray(quadVAO);
+		gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+		gl.bindVertexArray(null);
 	}  
 }
 

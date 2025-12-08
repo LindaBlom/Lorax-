@@ -28,7 +28,7 @@ void main() {
 
     // simple Lambert shading
     vec3 N = normalize(vNormal);
-    vec3 L = normalize(-uLightDir);   // from surface TO sun
+    vec3 L = normalize(uLightDir);   // from surface TO sun
 
     float diff = dot(N, L) * 0.5 + 0.5;
     diff = clamp(diff, 0.0, 1.0);
