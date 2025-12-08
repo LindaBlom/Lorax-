@@ -5,6 +5,7 @@ import {getHeightAt} from "./helpers/utils.js";
 
 const mat4 = glMatrix.mat4;
 const vec3 = glMatrix.vec3;
+const WORLD_RADIUS = 75.0;
 
 // ---- perspective and camera setup ----
 const keys = {};
@@ -121,6 +122,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 	const uViewLoc 		= gl.getUniformLocation(floorProgram, "uView");
 	const uProjLoc 		= gl.getUniformLocation(floorProgram, "uProj");
 	const uGrassLoc 	= gl.getUniformLocation(floorProgram, "uGrass");
+	const uWorldRadiusLoc = gl.getUniformLocation(floorProgram, "uWorldRadius");
 
 	const uSeedLoc 		= gl.getUniformLocation(floorProgram, "uSeed");
 
@@ -201,6 +203,25 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 			verticalVelocity = 0; // reset 
 		}
 	}
+	function applyWorldBoundsCollision() {
+		const x = cameraPos[0];
+		const y = cameraPos[1];
+
+		const distSq   = x * x + y * y;
+		const maxDist  = WORLD_RADIUS  - 1.0;
+		const maxDistSq = maxDist * maxDist;
+
+		if (distSq > maxDistSq) {
+			const dist = Math.sqrt(distSq);
+			if (dist > 0.0001) {
+				const scale = maxDist / dist;
+				cameraPos[0] = x * scale;
+				cameraPos[1] = y * scale;
+			}
+		}
+	}
+
+
 	function applyTreeCollision(){
 		// using pythagoras 
 		for (const [treeX, treeY] of treePositions){
@@ -373,6 +394,14 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 		let speed = 0.2;
 		if (keys["shift"]) speed = 0.4;
 
+		if (keys["f"]) {
+			gravityEnabled = !gravityEnabled;
+		}
+
+		if (keys[" "]) {
+			verticalVelocity = 0.5; // jump
+		}
+
 		if (gravityEnabled) {
 			verticalVelocity += gravity;         // accelerate downward
 			cameraPos[2] += verticalVelocity;    // apply vertical motion
@@ -424,6 +453,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 
 		// apply collision + rebuild view
 		applyGroundCollision();
+		applyWorldBoundsCollision();
 		applyTreeCollision();
 		updateViewMatrix();
 	}
@@ -495,6 +525,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 
 		gl.uniformMatrix4fv(uViewLoc, false, viewMatrix);
 		gl.uniformMatrix4fv(uProjLoc, false, projMatrix);
+		gl.uniform1f(uWorldRadiusLoc, WORLD_RADIUS); 
 
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, grassTexture);
@@ -509,7 +540,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, floorEBO);
 
 		const tileSize = 20.0;     // your quad covers -10..10 ⇒ size 20
-		const gridRadius = 4;      // draws (2*4+1)^2 = 81 tiles
+		const gridRadius = 9;      // draws (2*4+1)^2 = 81 tiles
 
 		for (let gy = -gridRadius; gy <= gridRadius; gy++) {
 			for (let gx = -gridRadius; gx <= gridRadius; gx++) {

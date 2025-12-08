@@ -7,12 +7,14 @@ export function addEventListeners(gl, keys,cameraState, gravityEnabled, vertical
 	window.addEventListener("keydown", (e) => {
 		const key = e.key;
 		keys[key.toLowerCase()] = true;   // w, a, s, d etc
-		if (key === "f") {
-			gravityEnabled = !gravityEnabled;
-			if (!gravityEnabled) {
-				verticalVelocity = 0; // optional, stops falling instantly
+
+		if (key === "l" || key === "L") {
+			const canvas = gl.canvas;
+			if (document.pointerLockElement === canvas) {
+				document.exitPointerLock();
+			} else {
+				canvas.requestPointerLock();
 			}
-			console.log("Gravity:", gravityEnabled ? "ON" : "OFF");
 		}
 	});
 
@@ -23,12 +25,17 @@ export function addEventListeners(gl, keys,cameraState, gravityEnabled, vertical
 
 	const canvas = gl.canvas; 
 	let isDragging = false;
+	let isPointerLocked = false;
 	let lastMouseX = 0;
 	let lastMouseY = 0;
 	const mouseSensitivity = 0.003; // radians per pixel-ish
 
+	document.addEventListener("pointerlockchange", () => {
+		isPointerLocked = (document.pointerLockElement === canvas);
+	});
+
 	window.addEventListener("mousedown", (e) => {
-		if (e.button === 0) {
+		if (e.button === 0 && !isPointerLocked) {
 			isDragging = true;
 			canvas.classList.add("dragging");
 			lastMouseX = e.clientX;
@@ -45,16 +52,27 @@ export function addEventListeners(gl, keys,cameraState, gravityEnabled, vertical
 
 	window.addEventListener("mouseleave", () => {
 		isDragging = false;
+		canvas.classList.remove("dragging");
 	});
 
 	window.addEventListener("mousemove", (e) => {
-		if (!isDragging) return;
+		let dx, dy;
 
-		const dx = e.clientX - lastMouseX;
-		const dy = e.clientY - lastMouseY;
+		if (isPointerLocked) {
+			// Pointer locked: browser gives relative movement
+			dx = e.movementX;
+			dy = e.movementY;
+		} else if (isDragging) {
+			// Old behaviour: drag with left mouse pressed
+			dx = e.clientX - lastMouseX;
+			dy = e.clientY - lastMouseY;
 
-		lastMouseX = e.clientX;
-		lastMouseY = e.clientY;
+			lastMouseX = e.clientX;
+			lastMouseY = e.clientY;
+		} else {
+			// Not dragging and not locked → ignore
+			return;
+		}
 
 		// convert pixels → radians
 		cameraState.yaw   -= dx * mouseSensitivity; // left/right
