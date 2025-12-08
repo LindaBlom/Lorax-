@@ -1,19 +1,26 @@
 import { parseOBJ } from "./helpers/parser.js";
 
-
-main();
+import {addEventListeners} from"./helpers/eventlisteners.js";
+import {getHeightAt} from "./helpers/utils.js";
 
 const mat4 = glMatrix.mat4;
 const vec3 = glMatrix.vec3;
 
+// ---- perspective and camera setup ----
+const keys = {};
+const cameraState = { yaw: Math.PI / 2, pitch: -0.2 };
+const cameraPos = vec3.fromValues(0, -30, 15); // starting position
+let gravityEnabled = true;
+let verticalVelocity = 0;     // z-velocity
+const gravity = -0.08;        // tweak as you like
+
 const treePositions = [
-            [0, 12],
-            [4, 14],
-            [-6, 16],
-        ];
+	[0, 12],
+	[4, 14],
+	[-6, 16],
+];
 
-
-
+main();
 
 
 function main() {
@@ -131,8 +138,6 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 	gl.uniform3f(uLightColorLoc,   1.0, 0.95, 0.85);  // sunlight
 	gl.uniform3f(uAmbientColorLoc, 0.25, 0.35, 0.45); // sky/ambient
 
-
-
 	// ---- SUN -------
 	const sunProgram = gl.createProgram();
 
@@ -168,20 +173,14 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 	const modelMatrix = mat4.create();
 	const projMatrix = mat4.create();
 	
-	// ---- perspective and camera setup ----
-	const cameraPos = vec3.fromValues(0, -30, 15); // starting position
-	let yaw   = Math.PI / 2;  // looking roughly along +X
-	let pitch = -0.2;
-	let gravityEnabled = true;
-	let verticalVelocity = 0;     // z-velocity
-	const gravity = -0.08;        // tweak as you like
+	
 
 	// rebuild viewMatrix from cameraPos, yaw, pitch
 	function updateViewMatrix() {
 		const forward = vec3.fromValues(
-			Math.cos(yaw) * Math.cos(pitch),
-			Math.sin(yaw) * Math.cos(pitch),
-			Math.sin(pitch)
+			Math.cos(cameraState.yaw) * Math.cos(cameraState.pitch),
+			Math.sin(cameraState.yaw) * Math.cos(cameraState.pitch),
+			Math.sin(cameraState.pitch)
 		);
 		const target = vec3.create();
 		vec3.add(target, cameraPos, forward);
@@ -193,7 +192,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 	updateViewMatrix();
 
 	function applyGroundCollision() {
-		const ground = getHeightAt(cameraPos[0], cameraPos[1]);
+		const ground = getHeightAt(cameraPos[0], cameraPos[1], seed);
 		const eyeHeight = 2.0; // how high above ground the "head" should be
 		const minZ = ground + eyeHeight;
 
@@ -227,96 +226,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 	const far = 100.0;
 
 	mat4.perspective(out, fovy, aspect, near, far);
-
-	function hash2D(x, y) {
-		// same as GLSL hash(vec2) using dot + sin + fract
-		const p1 = x * 127.1 + y * 311.7;
-		const p2 = x * 269.5 + y * 183.3;
-		const v  = p1 + p2 + seed;
-
-		const s = Math.sin(v) * 43758.5453123;
-		return s - Math.floor(s); // fract
-	}
-
-	function getHeightAt(x, y) {
-		// must match grass.vert:getHeight
-		const wave =
-			0.5 * Math.sin(x * 0.18) *
-			Math.cos(y * 0.18);
-
-		const nx = x * 0.12;
-		const ny = y * 0.12;
-		const n = hash2D(nx, ny);
-		const noise = (n - 0.5) * 0.25;
-
-		const height = (wave + noise) * 2.0; // same factor as in your vertex shader
-		return height;
-	}
- 
-	const keys = {};
-
-	window.addEventListener("keydown", (e) => {
-		const key = e.key;
-		keys[key.toLowerCase()] = true;   // w, a, s, d etc
-		if (key === "f") {
-			gravityEnabled = !gravityEnabled;
-			if (!gravityEnabled) {
-				verticalVelocity = 0; // optional, stops falling instantly
-			}
-			console.log("Gravity:", gravityEnabled ? "ON" : "OFF");
-		}
-	});
-
-	window.addEventListener("keyup", (e) => {
-		const key = e.key;
-		keys[key.toLowerCase()] = false;  // w, a, s, d etc
-	});
-
-	const canvas = gl.canvas; 
-	let isDragging = false;
-	let lastMouseX = 0;
-	let lastMouseY = 0;
-	const mouseSensitivity = 0.003; // radians per pixel-ish
-
-	window.addEventListener("mousedown", (e) => {
-		if (e.button === 0) {
-			isDragging = true;
-			canvas.classList.add("dragging");
-			lastMouseX = e.clientX;
-			lastMouseY = e.clientY;
-		}
-	});
-
-	window.addEventListener("mouseup", (e) => {
-		if (e.button === 0) {
-			isDragging = false;
-			canvas.classList.remove("dragging");
-		}
-	});
-
-	window.addEventListener("mouseleave", () => {
-		isDragging = false;
-	});
-
-	window.addEventListener("mousemove", (e) => {
-		if (!isDragging) return;
-
-		const dx = e.clientX - lastMouseX;
-		const dy = e.clientY - lastMouseY;
-
-		lastMouseX = e.clientX;
-		lastMouseY = e.clientY;
-
-		// convert pixels → radians
-		yaw   -= dx * mouseSensitivity; // left/right
-		pitch -= dy * mouseSensitivity; // up/down
-
-		// clamp pitch so you can’t flip over
-		const maxPitch = Math.PI / 2 - 0.1;
-		if (pitch > maxPitch) pitch = maxPitch;
-		if (pitch < -maxPitch) pitch = -maxPitch;
-		updateViewMatrix();
-	});
+	addEventListeners(gl, keys, cameraState ,gravityEnabled, verticalVelocity, updateViewMatrix);
 	
 	const segments = 10;              // increase this for more resolution (e.g. 40, 80)
 	const size     = 20.0;           
@@ -471,7 +381,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 		}
 
 		// horizontal forward direction (ignore pitch for movement)
-		const forward = vec3.fromValues(Math.cos(yaw), Math.sin(yaw), 0);
+		const forward = vec3.fromValues(Math.cos(cameraState.yaw), Math.sin(cameraState.yaw), 0);
 		const right   = vec3.fromValues(forward[1], -forward[0], 0);
 
 		if (keys["w"]) {
@@ -496,21 +406,21 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 		// arrow keys also rotate view (optional)
 		const rotationSpeed = 0.02;
 		if (keys["arrowleft"]) {
-			yaw += rotationSpeed;
+			cameraState.yaw += rotationSpeed;
 		}
 		if (keys["arrowright"]) {
-			yaw -= rotationSpeed;
+			cameraState.yaw -= rotationSpeed;
 		}
 		if (keys["arrowup"]) {
-			pitch += rotationSpeed;
+			cameraState.pitch += rotationSpeed;
 		}
 		if (keys["arrowdown"]) {
-			pitch -= rotationSpeed;
+			cameraState.pitch -= rotationSpeed;
 		}
 
 		const maxPitch = Math.PI / 2 - 0.1;
-		if (pitch > maxPitch) pitch = maxPitch;
-		if (pitch < -maxPitch) pitch = -maxPitch;
+		if (cameraState.pitch > maxPitch) cameraState.pitch = maxPitch;
+		if (cameraState.pitch < -maxPitch) cameraState.pitch = -maxPitch;
 
 		// apply collision + rebuild view
 		applyGroundCollision();
@@ -549,7 +459,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 		// render trees
         treePositions.forEach(([xCoord, yCoord]) => {
             const model = mat4.create();
-            const ground = getHeightAt(xCoord, yCoord);
+            const ground = getHeightAt(xCoord, yCoord, seed);
             mat4.translate(model, model, [xCoord, yCoord, ground]);
 			mat4.rotateX(model, model, Math.PI / 2);
             gl.uniformMatrix4fv(uTreeModelLoc, false, model);
