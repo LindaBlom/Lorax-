@@ -32,7 +32,7 @@ void main() {
 
     float diff = dot(N, L) * 0.5 + 0.5;
     diff = clamp(diff, 0.0, 1.0);
-    
+
     vec3 light = uAmbientColor + uLightColor * diff;
 
     outColor = vec4(texColor.rgb * light, texColor.a);

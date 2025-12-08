@@ -51,13 +51,12 @@ function main() {
 		fetch("models/träd1-kula.obj").then(r => r.text()),
 		fetch("shaders/stem.vert").then(r => r.text()),
 		fetch("shaders/stem.frag").then(r => r.text()),
-		fetch("shaders/post.vert").then(r => r.text()),
-    	fetch("shaders/bloom.frag").then(r => r.text()),
 		fetch("models/träd2-stam.obj").then(r => r.text()),
-		
+		fetch("shaders/post.vert").then(r => r.text()),
+    	fetch("shaders/bloom.frag").then(r => r.text())		
 	])
-		.then(([grassVert, grassFrag, sunVert, sunFrag, ballVert,ballFrag, ballObj, stemVert, stemFrag, stemObj]) => {
-			initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert, ballFrag,ballObj, stemVert ,stemFrag ,stemObj);
+		.then(([grassVert, grassFrag, sunVert, sunFrag, ballVert,ballFrag, ballObj, stemVert, stemFrag, stemObj, postVert, bloomFrag]) => {
+			initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert, ballFrag, ballObj, stemVert, stemFrag, stemObj, postVert, bloomFrag);
 		})
 		.catch(err => console.error("Failed to load shaders:", err));
 }
@@ -124,8 +123,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	ballImg.src = "textures/treeFurPink.jpg";
     
 
-	//// ----- STEMS ------
-//
+	//// ----- STEMS ------//
 	const stemProgram = gl.createProgram();
 
 	const stemVertShader = compileShader(gl,stemVert, gl.VERTEX_SHADER);
