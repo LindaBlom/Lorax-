@@ -17,8 +17,8 @@ const gravity = -0.08;        // tweak as you like
 
 const treePositions = [
 	[0, 12],
-	[10, 24],
-	[-5, 10],
+	//[10, 24],
+	//[-5, 10],
 ];
 
 main();
@@ -699,24 +699,22 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 			mat4.rotateX(model, model, Math.PI / 2);
 			mat4.scale(model, model, [3, 3, 3]);
 
-			// 1) bas-sfär – depthMask(true), cull back faces
-			//gl.enable(gl.POLYGON_OFFSET_FILL);
-			//gl.polygonOffset(1.0, 1.0);
+			// BAS
 			gl.depthMask(true);
 			gl.disable(gl.BLEND);
 			gl.cullFace(gl.BACK);
 	
 			gl.uniformMatrix4fv(uBallModelLoc, false, model);
 			gl.uniform1f(uShellIndexLoc, 0.0);
-			gl.uniform1f(uShellOffsetLoc, 0.04);
+			gl.uniform1f(uShellOffsetLoc, 0.2);
 			gl.drawArrays(gl.TRIANGLES, 0, ballData.vertexCount);
 			gl.disable(gl.POLYGON_OFFSET_FILL);
 
-			// 2) shells – depthMask(false), cull front faces
+	
 			gl.enable(gl.BLEND);
 			gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-
+			// SHELLS
 			for (let i = shellCount - 1; i >= 0; i--) {
 			  const shellIndex = i / (shellCount - 1);
 			  gl.uniform1f(uShellIndexLoc, shellIndex);

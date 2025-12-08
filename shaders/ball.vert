@@ -10,10 +10,13 @@ uniform float uShellIndex;
 
 out vec2 vUV;
 out float vShellIndex;
+out vec3 vNormal;
 
 void main() {
-    vec3 displaced = aPosition + aNormal * uShellOffset * uShellIndex;
+    vec3 displaced = aPosition + aNormal * (uShellOffset * uShellIndex);
     vUV = aUV* 1.0;
     vShellIndex = uShellIndex; 
+
+    vNormal = mat3(uModel) * aNormal;
     gl_Position = uProj * uView * uModel * vec4(displaced, 1.0);
 }
