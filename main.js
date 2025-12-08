@@ -11,14 +11,14 @@ const WORLD_RADIUS = 75.0;
 const keys = {};
 const cameraState = { yaw: Math.PI / 2, pitch: -0.2 };
 const cameraPos = vec3.fromValues(0, -30, 15); // starting position
-let gravityEnabled = true;
+let gravityEnabled = false;
 let verticalVelocity = 0;     // z-velocity
 const gravity = -0.08;        // tweak as you like
 
 const treePositions = [
 	[0, 12],
-	[4, 14],
-	[-6, 16],
+	[10, 24],
+	[-5, 10],
 ];
 
 main();
@@ -46,60 +46,144 @@ function main() {
 		fetch("shaders/grass.frag").then(r => r.text()),
 		fetch("shaders/sun.vert").then(r => r.text()),
 		fetch("shaders/sun.frag").then(r => r.text()),
-		fetch("shaders/tree.vert").then(r => r.text()),
-		fetch("shaders/tree.frag").then(r => r.text()),
+		fetch("shaders/ball.vert").then(r => r.text()),
+		fetch("shaders/ball.frag").then(r => r.text()),
+		fetch("models/träd1-kula.obj").then(r => r.text()),
+		fetch("shaders/stem.vert").then(r => r.text()),
+		fetch("shaders/stem.frag").then(r => r.text()),
 		fetch("shaders/post.vert").then(r => r.text()),
     	fetch("shaders/bloom.frag").then(r => r.text()),
-		fetch("models/tree.obj").then(r => r.text())
+		fetch("models/träd2-stam.obj").then(r => r.text()),
+		
 	])
-		.then(([grassVert, grassFrag, sunVert, sunFrag, treeVert, treeFrag, postVert, bloomFrag, treeObj]) => {
-			initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert, treeFrag, postVert, bloomFrag, treeObj);
+		.then(([grassVert, grassFrag, sunVert, sunFrag, ballVert,ballFrag, ballObj, stemVert, stemFrag, stemObj]) => {
+			initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert, ballFrag,ballObj, stemVert ,stemFrag ,stemObj);
 		})
 		.catch(err => console.error("Failed to load shaders:", err));
 }
 
-function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert, treeFrag, postVert, bloomFrag, treeObjText) {
+function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ballFrag, ballObjText,stemVert, stemFrag, stemObj, postVert, bloomFrag) {
+	// --- BALLS-----
+	const ballProgram = gl.createProgram();
 
+	const ballVertShader = compileShader(gl,ballVert, gl.VERTEX_SHADER);
+	const ballFragShader = compileShader(gl,ballFrag, gl.FRAGMENT_SHADER);
 
+	
+	gl.attachShader(ballProgram, ballVertShader);
+	gl.attachShader(ballProgram,ballFragShader);
+	gl.linkProgram(ballProgram);
 
-	// --- TREES -----
-	const treeProgram = gl.createProgram();
+	const uBallModelLoc = gl.getUniformLocation(ballProgram, "uModel");
+    const uBallViewLoc  = gl.getUniformLocation(ballProgram, "uView");
+    const uBallProjLoc  = gl.getUniformLocation(ballProgram, "uProj");
+	
 
-	const treeVertShader = compileShader(gl,treeVert, gl.VERTEX_SHADER);
-	const treeFragShader = compileShader(gl,treeFrag, gl.FRAGMENT_SHADER);
-
-	gl.attachShader(treeProgram, treeVertShader);
-	gl.attachShader(treeProgram,treeFragShader);
-	gl.linkProgram(treeProgram);
-
-	if(!gl.getProgramParameter(treeProgram, gl.LINK_STATUS)){
-		console.log(gl.getShaderInfoLog(treeVertShader))
-		console.log(gl.getShaderInfoLog(treeFragShader))
+	if(!gl.getProgramParameter(ballProgram, gl.LINK_STATUS)){
+		console.log(gl.getShaderInfoLog(ballVertShader))
+		console.log(gl.getShaderInfoLog(ballFragShader))
 	}
-	gl.useProgram(treeProgram);
+	gl.useProgram(ballProgram);
 
 
-	const treeData = parseOBJ(treeObjText);
+	// reading objects and saving to buffer
+	const ballData = parseOBJ(ballObjText);
 
-    const treeVBO = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, treeVBO);
-    gl.bufferData(gl.ARRAY_BUFFER, treeData.positions, gl.STATIC_DRAW);
+    const ballVBO = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, ballVBO);
+    gl.bufferData(gl.ARRAY_BUFFER, ballData.positions, gl.STATIC_DRAW);
 
-    const treeUVBO = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, treeUVBO);
-    gl.bufferData(gl.ARRAY_BUFFER, treeData.texCoords, gl.STATIC_DRAW);
+    const ballUVBO = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, ballUVBO);
+    gl.bufferData(gl.ARRAY_BUFFER, ballData.texCoords, gl.STATIC_DRAW);
 
-    const treeNBO = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, treeNBO);
-    gl.bufferData(gl.ARRAY_BUFFER, treeData.normals, gl.STATIC_DRAW);
+    const ballNBO = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, ballNBO);
+    gl.bufferData(gl.ARRAY_BUFFER, ballData.normals, gl.STATIC_DRAW);
 
     //// Hämta locations (om du inte redan gjort det)
-    const uTreeModelLoc = gl.getUniformLocation(treeProgram, "uModel");
-    const uTreeViewLoc  = gl.getUniformLocation(treeProgram, "uView");
-    const uTreeProjLoc  = gl.getUniformLocation(treeProgram, "uProj");
     
 
 
+	const ballTexture = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D,ballTexture);
+	gl.bindTexture(gl.TEXTURE_2D, ballTexture);
+	// WTF ÄR DETTA
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 0, 255, 255]));
+
+	const ballImg = new Image();
+	ballImg.onload = () => {
+	  gl.bindTexture(gl.TEXTURE_2D, ballTexture);
+	  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, ballImg);
+	  gl.generateMipmap(gl.TEXTURE_2D);
+	};
+	ballImg.src = "textures/treeFurPink.jpg";
+    
+
+	//// ----- STEMS ------
+//
+	const stemProgram = gl.createProgram();
+
+	const stemVertShader = compileShader(gl,stemVert, gl.VERTEX_SHADER);
+	const stemFragShader = compileShader(gl,stemFrag, gl.FRAGMENT_SHADER);
+
+	
+	gl.attachShader(stemProgram, stemVertShader);
+	gl.attachShader(stemProgram, stemFragShader);
+	gl.linkProgram(stemProgram);
+
+    const uStemViewLoc  = gl.getUniformLocation(stemProgram, "uView");
+	const uStemModelLoc = gl.getUniformLocation(stemProgram, "uModel");
+    const uStemProjLoc  = gl.getUniformLocation(stemProgram, "uProj");
+	const uShellOffsetLoc = gl.getUniformLocation(ballProgram, "uShellOffset");
+	const uShellIndexLoc = gl.getUniformLocation(ballProgram,"uShellIndex");
+
+
+	if(!gl.getProgramParameter(stemProgram, gl.LINK_STATUS)){
+		console.log(gl.getShaderInfoLog(stemVertShader))
+		console.log(gl.getShaderInfoLog(stemFragShader))
+	}
+	gl.useProgram(stemProgram);
+
+
+	// reading objects and saving to buffer
+	const stemData = parseOBJ(stemObj);
+
+    const stemVBO = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, stemVBO);
+    gl.bufferData(gl.ARRAY_BUFFER, stemData.positions, gl.STATIC_DRAW);
+
+    const stemUVBO = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, stemUVBO);
+    gl.bufferData(gl.ARRAY_BUFFER, stemData.texCoords, gl.STATIC_DRAW);
+
+    const stemNBO = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, stemNBO);
+    gl.bufferData(gl.ARRAY_BUFFER, stemData.normals, gl.STATIC_DRAW);
+
+    //// Hämta locations (om du inte redan gjort det)
+
+	const stemTexture = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_2D,stemTexture);
+	gl.bindTexture(gl.TEXTURE_2D, stemTexture);
+	// WTF ÄR DETTA
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+	gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([255, 0, 255, 255]));
+
+	const stemImg = new Image();
+	stemImg.onload = () => {
+	  gl.bindTexture(gl.TEXTURE_2D, stemTexture);
+	  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, stemImg);
+	  gl.generateMipmap(gl.TEXTURE_2D);
+	};
+	stemImg.src = "textures/birchWood.png";
 
 	// ---- FLOOR -------
 	const floorProgram = gl.createProgram();
@@ -460,9 +544,12 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert, t
 		);
 
 		gl.generateMipmap(gl.TEXTURE_2D);
-		render();
+		//render();
 	};
 	image.src = "textures/grass.png"; 
+
+
+
 
 	const sunVertices = new Float32Array([
 		// x,  y,  z,   u, v
@@ -481,6 +568,11 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert, t
 	const sunEBO = gl.createBuffer();
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sunEBO);
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sunIndices, gl.STATIC_DRAW);
+
+
+
+	render();
+
 
 	function render(){
 		updateCamera();     // WASD, mus, etc'
@@ -565,21 +657,101 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert, t
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 
-		// ---- draw trees ----
-		gl.useProgram(treeProgram);
-		
-		gl.uniformMatrix4fv(uTreeViewLoc,  false, viewMatrix);
-		gl.uniformMatrix4fv(uTreeProjLoc,  false, projMatrix);
+		// ---- draw Balls ----
 
-		gl.bindBuffer(gl.ARRAY_BUFFER, treeVBO);
+
+	
+
+
+		gl.useProgram(ballProgram);
+
+		// ---Textures -----
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, ballTexture);
+		gl.uniform1i(gl.getUniformLocation(ballProgram, "uFurTexture"), 0);
+
+		gl.uniformMatrix4fv(uBallViewLoc,  false, viewMatrix);
+		gl.uniformMatrix4fv(uBallProjLoc,  false, projMatrix);
+
+		gl.bindBuffer(gl.ARRAY_BUFFER, ballVBO);
     	gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
     	gl.enableVertexAttribArray(0);
 
-    	gl.bindBuffer(gl.ARRAY_BUFFER, treeNBO);
+    	gl.bindBuffer(gl.ARRAY_BUFFER, ballNBO);
     	gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
     	gl.enableVertexAttribArray(1);
 
-    	gl.bindBuffer(gl.ARRAY_BUFFER, treeUVBO);
+    	gl.bindBuffer(gl.ARRAY_BUFFER, ballUVBO);
+    	gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
+    	gl.enableVertexAttribArray(2);
+
+		
+		//gl.enable(gl.BLEND);
+		//gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA); 
+
+
+
+
+		const shellCount = 12;
+
+		treePositions.forEach(([xCoord, yCoord]) => {
+			const model = mat4.create();
+			const ground = getHeightAt(xCoord, yCoord, seed);
+			mat4.translate(model, model, [xCoord, yCoord+11, ground + 3]);
+			mat4.rotateX(model, model, Math.PI / 2);
+			mat4.scale(model, model, [3, 3, 3]);
+
+			// 1) bas-sfär – depthMask(true), cull back faces
+			//gl.enable(gl.POLYGON_OFFSET_FILL);
+			//gl.polygonOffset(1.0, 1.0);
+			gl.depthMask(true);
+			gl.disable(gl.BLEND);
+			gl.cullFace(gl.BACK);
+	
+			gl.uniformMatrix4fv(uBallModelLoc, false, model);
+			gl.uniform1f(uShellIndexLoc, 0.0);
+			gl.uniform1f(uShellOffsetLoc, 0.04);
+			gl.drawArrays(gl.TRIANGLES, 0, ballData.vertexCount);
+			gl.disable(gl.POLYGON_OFFSET_FILL);
+
+			// 2) shells – depthMask(false), cull front faces
+			gl.enable(gl.BLEND);
+			gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+
+			for (let i = shellCount - 1; i >= 0; i--) {
+			  const shellIndex = i / (shellCount - 1);
+			  gl.uniform1f(uShellIndexLoc, shellIndex);
+			  gl.drawArrays(gl.TRIANGLES, 0, ballData.vertexCount);
+			}
+
+			// reset state
+			gl.disable(gl.BLEND);
+			//gl.cullFace(gl.BACK);
+		});
+
+		// --------------draw stems---------------------------
+
+		gl.useProgram(stemProgram);
+
+		// ---Textures -----
+		gl.activeTexture(gl.TEXTURE0);
+		gl.bindTexture(gl.TEXTURE_2D, stemTexture);
+		gl.uniform1i(gl.getUniformLocation(stemProgram, "uTreeTex"), 0);
+		gl.uniform3fv(gl.getUniformLocation(stemProgram, "uLightDir"), sunDir);
+
+		gl.uniformMatrix4fv(uStemViewLoc,  false, viewMatrix);
+		gl.uniformMatrix4fv(uStemProjLoc,  false, projMatrix);
+
+		gl.bindBuffer(gl.ARRAY_BUFFER, stemVBO);
+    	gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+    	gl.enableVertexAttribArray(0);
+
+    	gl.bindBuffer(gl.ARRAY_BUFFER, stemNBO);
+    	gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 0, 0);
+    	gl.enableVertexAttribArray(1);
+
+    	gl.bindBuffer(gl.ARRAY_BUFFER, stemUVBO);
     	gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
     	gl.enableVertexAttribArray(2);
 
@@ -591,10 +763,10 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert, t
             const ground = getHeightAt(xCoord, yCoord, seed);
             mat4.translate(model, model, [xCoord, yCoord, ground]);
 			mat4.rotateX(model, model, Math.PI / 2);
-            gl.uniformMatrix4fv(uTreeModelLoc, false, model);
-            gl.drawArrays(gl.TRIANGLES, 0, treeData.vertexCount);
+			mat4.scale(model,model,[3,3,3]);
+            gl.uniformMatrix4fv(uStemModelLoc, false, model);
+            gl.drawArrays(gl.TRIANGLES, 0, stemData.vertexCount);
         });
-
 
 
 		// --- draw sun first ---
