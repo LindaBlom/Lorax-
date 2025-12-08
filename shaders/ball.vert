@@ -13,7 +13,7 @@ out float vShellIndex;
 
 void main() {
     vec3 displaced = aPosition + aNormal * uShellOffset * uShellIndex;
-    vUV = aUV* 10.0;
+    vUV = aUV* 1.0;
     vShellIndex = uShellIndex; 
     gl_Position = uProj * uView * uModel * vec4(displaced, 1.0);
 }

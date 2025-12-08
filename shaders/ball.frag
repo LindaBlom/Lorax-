@@ -19,9 +19,8 @@ void main() {
     float fade = 1.0 - vShellIndex;
     float alpha = tex.a * fade;
 
-    if (alpha < 0.5) {
-        discard;
-    }
+    if (alpha < 0.5) discard;
+    
 
     vec3 color = tex.rgb;
     FragColor = vec4(color, alpha);
