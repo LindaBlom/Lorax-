@@ -14,8 +14,15 @@ uniform sampler2D uGrass;
 uniform vec3 uLightDir;     // direction FROM world towards the sun
 uniform vec3 uLightColor;
 uniform vec3 uAmbientColor;
+uniform float uWorldRadius;
 
 void main() {
+    float r2 = dot(vWorldPos.xy, vWorldPos.xy);
+    float R2 = uWorldRadius * uWorldRadius;
+    if (r2 > R2) {
+        discard;   // don't draw this pixel at all
+    }
+
     vec2 tiledUV = vTexCoord;  // vTexCoord already goes 0→5, so it tiles
     vec4 texColor = texture(uGrass, tiledUV);
 
