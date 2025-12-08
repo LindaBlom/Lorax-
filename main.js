@@ -6,6 +6,16 @@ main();
 const mat4 = glMatrix.mat4;
 const vec3 = glMatrix.vec3;
 
+const treePositions = [
+            [0, 12],
+            [4, 14],
+            [-6, 16],
+        ];
+
+
+
+
+
 function main() {
 	const canvas = document.querySelector("#gl-canvas");
 	const gl = canvas.getContext("webgl2");
@@ -190,6 +200,23 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 		if (cameraPos[2] < minZ) {
 			cameraPos[2] = minZ;
 			verticalVelocity = 0; // reset 
+		}
+	}
+	function applyTreeCollision(){
+		// using pythagoras 
+		for (const [treeX, treeY] of treePositions){
+			const treeRadius = 1.5; // adjust as needed
+			const catX = cameraPos[0] - treeX;
+			const catY = cameraPos[1] - treeY;
+			const treeDist = Math.sqrt(catX*catX + catY*catY);
+
+			if (treeDist < treeRadius){
+				const overlap = treeRadius - treeDist;
+				const pushX = (catX / treeDist) * overlap;
+				const pushY = (catY / treeDist) * overlap;
+				cameraPos[0] += pushX;
+				cameraPos[1] += pushY;
+			}
 		}
 	}
 	
@@ -487,6 +514,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
 
 		// apply collision + rebuild view
 		applyGroundCollision();
+		applyTreeCollision();
 		updateViewMatrix();
 	}
 
@@ -517,16 +545,12 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, treeVert,tr
     	gl.enableVertexAttribArray(2);
 
 
-    	const treePositions = [
-            [0, 12],
-            [4, 14],
-            [-6, 16],
-        ];
-
-        treePositions.forEach(([tx, ty]) => {
+    	
+		// render trees
+        treePositions.forEach(([xCoord, yCoord]) => {
             const model = mat4.create();
-            const tz = getHeightAt(tx, ty);
-            mat4.translate(model, model, [tx, ty, tz]);
+            const ground = getHeightAt(xCoord, yCoord);
+            mat4.translate(model, model, [xCoord, yCoord, ground]);
 			mat4.rotateX(model, model, Math.PI / 2);
             gl.uniformMatrix4fv(uTreeModelLoc, false, model);
             gl.drawArrays(gl.TRIANGLES, 0, treeData.vertexCount);
