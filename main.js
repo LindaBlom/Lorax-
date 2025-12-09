@@ -690,7 +690,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 
 
 
-		const shellCount = 12;
+		const shellCount = 1000;
 
 		treePositions.forEach(([xCoord, yCoord]) => {
 			const model = mat4.create();
@@ -708,11 +708,11 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 			gl.uniform1f(uShellIndexLoc, 0.0);
 			gl.uniform1f(uShellOffsetLoc, 0.2);
 			gl.drawArrays(gl.TRIANGLES, 0, ballData.vertexCount);
-			gl.disable(gl.POLYGON_OFFSET_FILL);
+			//gl.disable(gl.POLYGON_OFFSET_FILL);
 
 	
-			gl.enable(gl.BLEND);
-			gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+			//gl.enable(gl.BLEND);
+			//gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
 			// SHELLS
 			for (let i = shellCount - 1; i >= 0; i--) {
@@ -722,7 +722,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 			}
 
 			// reset state
-			gl.disable(gl.BLEND);
+			//gl.disable(gl.BLEND);
 			//gl.cullFace(gl.BACK);
 		});
 
