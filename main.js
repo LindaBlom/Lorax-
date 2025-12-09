@@ -251,10 +251,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 
 	const sunPos = vec3.create();
 	vec3.scale(sunPos, sunDir, sunDistance);
-
-	mat4.translate(sunModelMatrix, sunModelMatrix, sunPos);
-	// make it visible in the sky
-	mat4.scale(sunModelMatrix, sunModelMatrix, [15.0, 15.0, 15.0]);
+	const sunBillboardRot = mat4.create();
 
 	// ==== POST-PROCESS / BLOOM ====
     const postProgram = gl.createProgram();
@@ -298,6 +295,12 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
     gl.bindVertexArray(null);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
+	 // === HDR support for render targets ===
+    const extColorBufferFloat = gl.getExtension("EXT_color_buffer_float");
+    if (!extColorBufferFloat) {
+        console.warn("EXT_color_buffer_float not supported - HDR bloom will not work.");
+    }
+
     // framebuffer we render the scene into
     let sceneFBO   = gl.createFramebuffer();
     let sceneTex   = gl.createTexture();
@@ -311,11 +314,11 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
         gl.texImage2D(
             gl.TEXTURE_2D,
             0,
-            gl.RGBA,
+            gl.RGBA16F,
             w, h,
             0,
             gl.RGBA,
-            gl.UNSIGNED_BYTE,
+            gl.HALF_FLOAT,
             null
         );
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -656,11 +659,6 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 
 
 		// ---- draw Balls ----
-
-
-	
-
-
 		gl.useProgram(ballProgram);
 
 		// ---Textures -----
@@ -766,6 +764,27 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 
 
 		// --- draw sun first ---
+		mat4.identity(sunModelMatrix);
+
+		// place sun at its world position
+		mat4.translate(sunModelMatrix, sunModelMatrix, sunPos);
+
+		// build a rotation that cancels the camera rotation (billboard)
+		mat4.copy(sunBillboardRot, viewMatrix);
+		// remove translation from view matrix
+		sunBillboardRot[12] = 0.0;
+		sunBillboardRot[13] = 0.0;
+		sunBillboardRot[14] = 0.0;
+		// invert rotation to get camera orientation
+		mat4.invert(sunBillboardRot, sunBillboardRot);
+
+		// apply billboard rotation so quad faces camera
+		mat4.multiply(sunModelMatrix, sunModelMatrix, sunBillboardRot);
+
+		// scale to desired angular size
+		const sunSize = 10.0;
+		mat4.scale(sunModelMatrix, sunModelMatrix, [sunSize, sunSize, sunSize]);
+
 		gl.useProgram(sunProgram);
 
 		gl.uniformMatrix4fv(uSunViewLoc,  false, viewMatrix);
@@ -775,6 +794,18 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+		// configure attributes for sun (same as before)
+		gl.bindBuffer(gl.ARRAY_BUFFER, sunVBO);
+		gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 5 * 4, 0);
+		gl.enableVertexAttribArray(0);
+		gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 5 * 4, 3 * 4);
+		gl.enableVertexAttribArray(1);
+
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sunEBO);
+		gl.drawElements(gl.TRIANGLES, sunIndices.length, gl.UNSIGNED_SHORT, 0);
+
+		gl.disable(gl.BLEND);
 
 		// configure attributes for sun (same layout 3 pos + 2 uv)
 		gl.bindBuffer(gl.ARRAY_BUFFER, sunVBO);
