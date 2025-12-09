@@ -17,26 +17,12 @@
         return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
     }
 
-
     void main() {
         if (vShellIndex < 0.001) {          // det här är ditt baspass
-            vec4 tex = texture(uFurTexture, vUV);  // eller en annan bas-textur
-            vec3 N = normalize(vNormal);
-            vec3 L = normalize(uLightDir);
-            float NdotL = max(dot(N, L), 0.0);
-
-            float ambient = 0.5;
-            float diffuse = 0.7 * NdotL;
-
-            vec3 color = tex.rgb * (ambient + diffuse);
-
-            // Viktigt: alfa = 1.0, ingen discard
-            FragColor = vec4(color, 1.0);
+            vec4 textureColor = texture(uFurTexture, vUV);
+            FragColor = vec4(textureColor.rgb, 1.0);
             return;
         }
-
-
-
         const float HAIR_GRID = 10000.0;
 
         vec2 gridCoord = vUV * HAIR_GRID;
@@ -64,23 +50,12 @@
 
         float radiusSmoothing = 1.0 - smoothstep(radius * 0.5, radius, dist);
 
-
         vec4 tex = texture(uFurTexture, vUV);
-
         float alpha = tex.a * radiusSmoothing;
-
-        // kasta bort väldigt tunna fragment
+      
         if (alpha < 0.05) discard;
         
-    
-        vec3 N = normalize(vNormal);
-        vec3 L = normalize(uLightDir);
-        float NdotL = max(dot(N, L), 0.0);
+        vec4 textureColor = texture(uFurTexture, vUV);
+        FragColor = vec4(textureColor.rgb, alpha);
 
-        float ambient = 0.5;
-        float diffuse = 0.7 * NdotL;
-
-        vec3 color = tex.rgb * (ambient + diffuse);
-
-        FragColor = vec4(color, alpha);
     }
