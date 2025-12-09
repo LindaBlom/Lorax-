@@ -20,5 +20,7 @@ void main() {
         alpha = 0.0;
     }
 
-    outColor = vec4(uSunColor, alpha);
+    vec3 HDRColor = uSunColor * alpha * 5.0; // boost brightness for HDR
+
+    outColor = vec4(HDRColor, alpha);
 }

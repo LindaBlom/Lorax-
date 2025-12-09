@@ -298,6 +298,12 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
     gl.bindVertexArray(null);
     gl.bindBuffer(gl.ARRAY_BUFFER, null);
 
+	 // === HDR support for render targets ===
+    const extColorBufferFloat = gl.getExtension("EXT_color_buffer_float");
+    if (!extColorBufferFloat) {
+        console.warn("EXT_color_buffer_float not supported - HDR bloom will not work.");
+    }
+
     // framebuffer we render the scene into
     let sceneFBO   = gl.createFramebuffer();
     let sceneTex   = gl.createTexture();
@@ -311,11 +317,11 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
         gl.texImage2D(
             gl.TEXTURE_2D,
             0,
-            gl.RGBA,
+            gl.RGBA16F,
             w, h,
             0,
             gl.RGBA,
-            gl.UNSIGNED_BYTE,
+            gl.HALF_FLOAT,
             null
         );
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
