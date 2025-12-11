@@ -13,6 +13,7 @@ uniform float uSeed;
 out vec2 vTexCoord;
 out vec3 vWorldPos;
 out vec3 vNormal;
+out vec4 vLightSpacePos;
 
 float hash(vec2 p) {
     p = vec2(
@@ -59,6 +60,7 @@ void main() {
 
     vWorldPos = worldPos;
     vNormal   = normal;
+    vLightSpacePos = uLightVP * vec4(worldPos, 1.0);
 
     gl_Position = uProj * uView * vec4(worldPos, 1.0);
 }

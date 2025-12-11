@@ -53,15 +53,17 @@ function main() {
 		fetch("shaders/stem.frag").then(r => r.text()),
 		fetch("models/träd2-stam.obj").then(r => r.text()),
 		fetch("shaders/post.vert").then(r => r.text()),
-    	fetch("shaders/bloom.frag").then(r => r.text())		
+    	fetch("shaders/bloom.frag").then(r => r.text()),
+		fetch("shaders/shadow.vert").then(r => r.text()),
+		fetch("shaders/shadow.frag").then(r => r.text())		
 	])
-		.then(([grassVert, grassFrag, sunVert, sunFrag, ballVert,ballFrag, ballObj, stemVert, stemFrag, stemObj, postVert, bloomFrag]) => {
-			initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert, ballFrag, ballObj, stemVert, stemFrag, stemObj, postVert, bloomFrag);
+		.then(([grassVert, grassFrag, sunVert, sunFrag, ballVert,ballFrag, ballObj, stemVert, stemFrag, stemObj, postVert, bloomFrag, shadowVert, shadowFrag]) => {
+			initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert, ballFrag, ballObj, stemVert, stemFrag, stemObj, postVert, bloomFrag, shadowVert, shadowFrag);
 		})
 		.catch(err => console.error("Failed to load shaders:", err));
 }
 
-function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ballFrag, ballObjText,stemVert, stemFrag, stemObj, postVert, bloomFrag) {
+function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ballFrag, ballObjText,stemVert, stemFrag, stemObj, postVert, bloomFrag, shadowVert, shadowFrag) {
 	// --- BALLS-----
 	const ballProgram = gl.createProgram();
 
@@ -202,6 +204,10 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	const uLightColorLoc   = gl.getUniformLocation(floorProgram, "uLightColor");
 	const uAmbientColorLoc = gl.getUniformLocation(floorProgram, "uAmbientColor");
 
+	const uLightVPLoc      = gl.getUniformLocation(floorProgram, "uLightVP");
+	const uShadowMapLoc    = gl.getUniformLocation(floorProgram, "uShadowMap");
+    const uShadowTexelSizeLoc = gl.getUniformLocation(floorProgram, "uShadowTexelSize");
+
 	const uModelLoc 	= gl.getUniformLocation(floorProgram, "uModel");
 	const uViewLoc 		= gl.getUniformLocation(floorProgram, "uView");
 	const uProjLoc 		= gl.getUniformLocation(floorProgram, "uProj");
@@ -253,10 +259,26 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	vec3.scale(sunPos, sunDir, sunDistance);
 	const sunBillboardRot = mat4.create();
 
+	const lightView  = mat4.create();
+	const lightProj  = mat4.create();
+	const lightVP    = mat4.create();
+	const lightOrthoSize = 80.0;  // covers your world area for shadows
+
 	// ==== POST-PROCESS / BLOOM ====
     const postProgram = gl.createProgram();
     const postVertShader  = compileShader(gl, postVert,  gl.VERTEX_SHADER);
     const bloomFragShader = compileShader(gl, bloomFrag, gl.FRAGMENT_SHADER);
+
+	const shadowProgram = gl.createProgram();
+	const shadowVertShader = compileShader(gl, shadowVert, gl.VERTEX_SHADER);
+	const shadowFragShader = compileShader(gl, shadowFrag, gl.FRAGMENT_SHADER);
+
+	gl.attachShader(shadowProgram, shadowVertShader);
+	gl.attachShader(shadowProgram, shadowFragShader);
+	gl.linkProgram(shadowProgram);
+
+	const uShadowModelLoc   = gl.getUniformLocation(shadowProgram, "uModel");
+	const uShadowLightVPLoc = gl.getUniformLocation(shadowProgram, "uLightVP");
 
     gl.attachShader(postProgram, postVertShader);
     gl.attachShader(postProgram, bloomFragShader);
@@ -349,8 +371,49 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
         gl.bindRenderbuffer(gl.RENDERBUFFER, null);
     }
 
+	const SHADOW_MAP_SIZE = 2048;
+
+	const shadowFBO      = gl.createFramebuffer();
+	const shadowDepthTex = gl.createTexture();
+
+	gl.bindTexture(gl.TEXTURE_2D, shadowDepthTex);
+	gl.texImage2D(
+		gl.TEXTURE_2D,
+		0,
+		gl.DEPTH_COMPONENT16,
+		SHADOW_MAP_SIZE,
+		SHADOW_MAP_SIZE,
+		0,
+		gl.DEPTH_COMPONENT,
+		gl.UNSIGNED_SHORT,
+		null
+	);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+	gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFBO);
+	gl.framebufferTexture2D(
+		gl.FRAMEBUFFER,
+		gl.DEPTH_ATTACHMENT,
+		gl.TEXTURE_2D,
+		shadowDepthTex,
+		0
+	);
+	// no color buffer
+	gl.drawBuffers([gl.NONE]);
+	gl.readBuffer(gl.NONE);
+
+	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+	gl.bindTexture(gl.TEXTURE_2D, null);
+
     // call once now (canvas already resized earlier)
     resizeSceneTargets();
+
+	// set shadow texel size (used for PCF sampling in shaders)
+	gl.useProgram(floorProgram);
+	gl.uniform2f(uShadowTexelSizeLoc, 1.0 / SHADOW_MAP_SIZE, 1.0 / SHADOW_MAP_SIZE);
 
 
 	// --- Matrices ---
@@ -651,6 +714,69 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 
 
 	function drawScene() {
+		gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFBO);
+        gl.viewport(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+        gl.enable(gl.DEPTH_TEST);
+        gl.colorMask(false, false, false, false);   // depth only
+        gl.clear(gl.DEPTH_BUFFER_BIT);
+
+        // recompute light matrices (sunPos already defined earlier)
+        const up = [0, 0, 1];
+        mat4.lookAt(lightView, sunPos, [0, 0, 0], up);
+        mat4.ortho(
+            lightProj,
+            -lightOrthoSize, lightOrthoSize,
+            -lightOrthoSize, lightOrthoSize,
+            1.0, 200.0
+        );
+        mat4.multiply(lightVP, lightProj, lightView);
+
+        gl.useProgram(shadowProgram);
+        gl.uniformMatrix4fv(uShadowLightVPLoc, false, lightVP);
+
+        gl.enable(gl.CULL_FACE);
+        gl.cullFace(gl.BACK);
+        gl.enable(gl.POLYGON_OFFSET_FILL);
+        gl.polygonOffset(2.0, 4.0);
+
+        // ---- draw ball into shadow map ----
+        treePositions.forEach(([xCoord, yCoord]) => {
+            const model = mat4.create();
+            const ground = getHeightAt(xCoord, yCoord, seed);
+            mat4.translate(model, model, [xCoord, yCoord + 11, ground + 3]);
+            mat4.rotateX(model, model, Math.PI / 2);
+            mat4.scale(model, model, [3, 3, 3]);
+
+            gl.uniformMatrix4fv(uShadowModelLoc, false, model);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, ballVBO);
+            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(0);
+
+            gl.drawArrays(gl.TRIANGLES, 0, ballData.vertexCount);
+        });
+
+        // ---- draw stems into shadow map ----
+        treePositions.forEach(([xCoord, yCoord]) => {
+            const model = mat4.create();
+            const ground = getHeightAt(xCoord, yCoord, seed);
+            mat4.translate(model, model, [xCoord, yCoord, ground]);
+            mat4.rotateX(model, model, Math.PI / 2);
+            mat4.scale(model, model, [3, 3, 3]);
+
+            gl.uniformMatrix4fv(uShadowModelLoc, false, model);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, stemVBO);
+            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(0);
+
+            gl.drawArrays(gl.TRIANGLES, 0, stemData.vertexCount);
+        });
+
+        gl.disable(gl.POLYGON_OFFSET_FILL);
+        gl.colorMask(true, true, true, true);
+
+
 		gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFBO);
 		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 		gl.enable(gl.DEPTH_TEST);
@@ -829,6 +955,12 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		gl.uniformMatrix4fv(uViewLoc, false, viewMatrix);
 		gl.uniformMatrix4fv(uProjLoc, false, projMatrix);
 		gl.uniform1f(uWorldRadiusLoc, WORLD_RADIUS); 
+
+		gl.uniformMatrix4fv(uLightVPLoc, false, lightVP);
+
+		gl.activeTexture(gl.TEXTURE1);
+        gl.bindTexture(gl.TEXTURE_2D, shadowDepthTex);
+        gl.uniform1i(uShadowMapLoc, 1);
 
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, grassTexture);
