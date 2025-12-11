@@ -467,24 +467,51 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		}
 	}
 
+	function pushOutFromCircle(cx, cy, radius) {
+		const dx = cameraPos[0] - cx;
+		const dy = cameraPos[1] - cy;
 
-	function applyTreeCollision(){
-		// using pythagoras 
-		for (const [treeX, treeY] of treePositions){
-			const treeRadius = 1.5; // adjust as needed
-			const catX = cameraPos[0] - treeX;
-			const catY = cameraPos[1] - treeY;
-			const treeDist = Math.sqrt(catX*catX + catY*catY);
+		let distSq = dx * dx + dy * dy;
 
-			if (treeDist < treeRadius){
-				const overlap = treeRadius - treeDist;
-				const pushX = (catX / treeDist) * overlap;
-				const pushY = (catY / treeDist) * overlap;
-				cameraPos[0] += pushX;
-				cameraPos[1] += pushY;
+		// Already outside or exactly on the edge → nothing to do
+		if (distSq >= radius * radius) {
+			return;
+		}
+
+		// If we are *exactly* at the center, pick a safe position on the edge
+		if (distSq < 1e-8) {
+			// Arbitrarily push to the right (you can pick any direction)
+			cameraPos[0] = cx + radius;
+			cameraPos[1] = cy;
+			return;
+		}
+
+		const dist = Math.sqrt(distSq);
+		const overlap = radius - dist;
+
+		const nx = dx / dist;
+		const ny = dy / dist;
+
+		cameraPos[0] += nx * overlap;
+		cameraPos[1] += ny * overlap;
+	}
+
+
+	function applyTreeCollision() {
+		for (const [xCoord, yCoord] of treePositions) {
+			// --- Stem (trunk) collision ---
+			const stemRadius = 1.5; // tweak as needed
+
+			const ground = getHeightAt(xCoord, yCoord, seed);
+			const ballCenterY = yCoord + 11;
+			const ballCenterZ = ground + 15;     // SAME as your translation z
+
+			if (cameraPos[2] < ballCenterZ) {
+				pushOutFromCircle(xCoord, ballCenterY, stemRadius);
 			}
 		}
 	}
+
 	
 	const out = projMatrix;
 	const fovy = Math.PI / 4; // 45 degrees
