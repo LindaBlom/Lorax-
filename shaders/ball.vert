@@ -11,12 +11,22 @@ uniform float uShellIndex;
 out vec2 vUV;
 out float vShellIndex;
 out vec3 vNormal;
-
 void main() {
-    vec3 displaced = aPosition + aNormal * (uShellOffset * uShellIndex);
-    vUV = aUV* 1.0;
-    vShellIndex = uShellIndex; 
 
+    vec3 vGravity = vec3(-0.0,0.0,-1.0);
+    // Om gravity är lokal
+    //vec3 worldPos = (uModel * vec4(vGravity,0.0)).xyz;
+    float k =  pow(uShellIndex, 3.0);
+
+    // förskjutning av skal utåt längst med normalen
+
+    vec3 modelPos = aPosition + aNormal * (uShellOffset * uShellIndex);
+    // Till värld + böjning
+    vec3 worldPos = (uModel * vec4(modelPos, 1.0)).xyz + vGravity * k;
+
+    vUV = aUV;
+    vShellIndex = uShellIndex;
     vNormal = mat3(uModel) * aNormal;
-    gl_Position = uProj * uView * uModel * vec4(displaced, 1.0);
+
+    gl_Position = uProj * uView * vec4(worldPos, 1.0);
 }

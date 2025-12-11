@@ -109,7 +109,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	const ballTexture = gl.createTexture();
 	gl.bindTexture(gl.TEXTURE_2D,ballTexture);
 	gl.bindTexture(gl.TEXTURE_2D, ballTexture);
-	// WTF ÄR DETTA
+
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
