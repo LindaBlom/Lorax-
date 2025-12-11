@@ -12,21 +12,28 @@ out vec2 vUV;
 out float vShellIndex;
 out vec3 vNormal;
 void main() {
+    vec3 vGravity = vec3(0.0,0.0,-1.0);
+    float k = pow(uShellIndex, 2.0);
+    float uSpiralTurns = 0.5;
 
-    vec3 vGravity = vec3(-0.0,0.0,-1.0);
-    // Om gravity är lokal
-    //vec3 worldPos = (uModel * vec4(vGravity,0.0)).xyz;
-    float k =  pow(uShellIndex, 3.0);
+    // vrid runt Z-axeln
+    float angle = uSpiralTurns * 6.2831853 * uShellIndex;
+    float cosin = cos(angle), sinus = sin(angle);
+    mat3 rotZ = mat3(
+        cosin, -sinus, 0.0,
+        sinus,  cosin, 0.0,
+        0.0,0.0,1.0
+    );
 
-    // förskjutning av skal utåt längst med normalen
+    vec3 center = vec3(0.0,3.5,0.0 );
 
-    vec3 modelPos = aPosition + aNormal * (uShellOffset * uShellIndex);
-    // Till värld + böjning
+    vec3 basePos = aPosition + aNormal * (uShellOffset * uShellIndex);
+    vec3 modelPos = rotZ * (basePos-center) + center;
     vec3 worldPos = (uModel * vec4(modelPos, 1.0)).xyz + vGravity * k;
 
     vUV = aUV;
     vShellIndex = uShellIndex;
-    vNormal = mat3(uModel) * aNormal;
+    vNormal = mat3(uModel) * (rotZ * aNormal);
 
     gl_Position = uProj * uView * vec4(worldPos, 1.0);
 }

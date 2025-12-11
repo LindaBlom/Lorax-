@@ -21,6 +21,13 @@ const treePositions = [
 	[0, 12],
 	//[10, 24],
 	//[-5, 10],
+	//[-15, -10],
+	//[20, -5],
+	//[-20, 15],
+	//[25, 20],
+	//[-25, -15],
+	//[30, -10],
+	//[-30, 5],
 ];
 
 main();
@@ -900,11 +907,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 			gl.uniform1f(uShellIndexLoc, 0.0);
 			gl.uniform1f(uShellOffsetLoc, 0.2);
 			gl.drawArrays(gl.TRIANGLES, 0, ballData.vertexCount);
-			//gl.disable(gl.POLYGON_OFFSET_FILL);
 
-	
-			//gl.enable(gl.BLEND);
-			//gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
 			// SHELLS
 			for (let i = shellCount - 1; i >= 0; i--) {
@@ -912,10 +915,6 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 			  gl.uniform1f(uShellIndexLoc, shellIndex);
 			  gl.drawArrays(gl.TRIANGLES, 0, ballData.vertexCount);
 			}
-
-			// reset state
-			//gl.disable(gl.BLEND);
-			//gl.cullFace(gl.BACK);
 		});
 
 		// --------------draw stems---------------------------
