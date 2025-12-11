@@ -45,3 +45,17 @@ Our goal was to build a small interactive 3D environment inspired by
 Project created by:
 - **David Unelind** and **Linda Blom**\
 for the course **EDAN35 -- High Performance Computer Graphics**.
+
+## 🎮 Controls
+
+Move around the Lorax world using the following controls:
+
+- **W / A / S / D** - Move forward / left / backward / right  
+- **Mouse Move** - Look around  
+- **Shift (hold)** - Sprint  
+- **Space** - Jump  
+- **F** - Toggle gravity (float mode on/off)  
+- **L** - Lock the mouse cursor into the game  
+- **Esc** - Release/unlock the mouse cursor  
+
+The camera movement is smoothed for a more natural feel, and collision detection is enabled for terrain, trees, and world boundaries.

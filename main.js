@@ -15,6 +15,7 @@ let smoothedCameraPos = [...cameraPos];
 let gravityEnabled = false;
 let verticalVelocity = 0;     // z-velocity
 const gravity = -0.08;        // tweak as you like
+let lastFDown = false;
 
 const treePositions = [
 	[0, 12],
@@ -674,9 +675,10 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		let speed = 0.2;
 		if (keys["shift"]) speed = 0.4;
 
-		if (keys["f"]) {
+		if (keys["f"] && !lastFDown) {
 			gravityEnabled = !gravityEnabled;
 		}
+		lastFDown = keys["f"];
 
 		if (keys[" "]) {
 			verticalVelocity = 0.5; // jump
