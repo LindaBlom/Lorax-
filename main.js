@@ -11,6 +11,7 @@ const WORLD_RADIUS = 75.0;
 const keys = {};
 const cameraState = { yaw: Math.PI / 2, pitch: -0.2 };
 const cameraPos = vec3.fromValues(0, -30, 15); // starting position
+let smoothedCameraPos = [...cameraPos];
 let gravityEnabled = false;
 let verticalVelocity = 0;     // z-velocity
 const gravity = -0.08;        // tweak as you like
@@ -431,9 +432,9 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 			Math.sin(cameraState.pitch)
 		);
 		const target = vec3.create();
-		vec3.add(target, cameraPos, forward);
+		vec3.add(target, smoothedCameraPos, forward);
 
-		mat4.lookAt(viewMatrix, cameraPos, target, [0, 0, 1]); // Z-up
+		mat4.lookAt(viewMatrix, smoothedCameraPos, target, [0, 0, 1]); // Z-up
 	}
 
 	// call once to initialize
@@ -736,6 +737,14 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		applyGroundCollision();
 		applyWorldBoundsCollision();
 		applyTreeCollision();
+
+		const smoothing = 0.15; // 0.05 = very smooth, 0.3 = more snappy
+
+		for (let i = 0; i < 3; i++) {
+			smoothedCameraPos[i] += (cameraPos[i] - smoothedCameraPos[i]) * smoothing;
+		}
+
+
 		updateViewMatrix();
 	}
 
