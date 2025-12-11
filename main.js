@@ -666,6 +666,8 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		gl.bindTexture(gl.TEXTURE_2D, ballTexture);
 		gl.uniform1i(gl.getUniformLocation(ballProgram, "uFurTexture"), 0);
 
+		gl.uniform3fv(gl.getUniformLocation(ballProgram, "uLightDir"), sunDir);
+
 		gl.uniformMatrix4fv(uBallViewLoc,  false, viewMatrix);
 		gl.uniformMatrix4fv(uBallProjLoc,  false, projMatrix);
 
@@ -731,8 +733,10 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		// ---Textures -----
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, stemTexture);
-		gl.uniform1i(gl.getUniformLocation(stemProgram, "uTreeTex"), 0);
+		gl.uniform1i(gl.getUniformLocation(stemProgram, "uStemTexture"), 0);
 		gl.uniform3fv(gl.getUniformLocation(stemProgram, "uLightDir"), sunDir);
+		gl.uniform3f(gl.getUniformLocation(stemProgram, "uLightColor"),   1.0, 0.99, 0.95);
+		gl.uniform3f(gl.getUniformLocation(stemProgram, "uAmbientColor"), 0.25, 0.35, 0.45);
 
 		gl.uniformMatrix4fv(uStemViewLoc,  false, viewMatrix);
 		gl.uniformMatrix4fv(uStemProjLoc,  false, projMatrix);
