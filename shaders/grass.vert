@@ -23,7 +23,6 @@ float hash(vec2 p) {
     return fract(sin(p.x + p.y + uSeed) * 43758.5453123);
 }
 
-/* --- NEW: reuse the same height function for position + normal --- */
 float getHeight(vec2 pos) {
     float wave =
         0.5 * sin(pos.x * 0.18) *
