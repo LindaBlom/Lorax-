@@ -221,7 +221,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	const seed = Math.random() * 100.0;
 	gl.uniform1f(uSeedLoc, seed);
 
-	const sunDir = vec3.fromValues(0.5, 0.5, 1.0);
+	const sunDir = vec3.fromValues(2.0, 1.0, 1.0);
 	vec3.normalize(sunDir, sunDir);
 
 	const lightDir = vec3.create();
@@ -253,7 +253,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	const uSunColorLoc = gl.getUniformLocation(sunProgram, "uSunColor");
 
 	const sunModelMatrix = mat4.create();
-	const sunDistance = 80.0;
+	const sunDistance = 100.0;
 
 	const sunPos = vec3.create();
 	vec3.scale(sunPos, sunDir, sunDistance);
@@ -773,7 +773,37 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
             gl.drawArrays(gl.TRIANGLES, 0, stemData.vertexCount);
         });
 
-        gl.disable(gl.POLYGON_OFFSET_FILL);
+		// ---- draw floor into shadow map (so grass heightfield casts shadows) ----
+		// local tile params (match the ones used in the main pass)
+		const tileSize_shadow = 20.0;
+		const gridRadius_shadow = 9;
+
+		gl.bindBuffer(gl.ARRAY_BUFFER, floorVBO);
+		// floor VBO layout: 3 pos, 2 uv => stride = 5 * 4
+		gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 5 * 4, 0);
+		gl.enableVertexAttribArray(0);
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, floorEBO);
+
+		// ensure seed matches grass shader noise
+		const uShadowSeedLoc = gl.getUniformLocation(shadowProgram, "uSeed");
+		if (uShadowSeedLoc) gl.uniform1f(uShadowSeedLoc, seed);
+
+		for (let gy = -gridRadius_shadow; gy <= gridRadius_shadow; gy++) {
+			for (let gx = -gridRadius_shadow; gx <= gridRadius_shadow; gx++) {
+				const tileModel = mat4.clone(modelMatrix);
+				mat4.translate(tileModel, tileModel, [gx * tileSize_shadow, gy * tileSize_shadow, 0.0]);
+				gl.uniformMatrix4fv(uShadowModelLoc, false, tileModel);
+
+				gl.drawElements(
+					gl.TRIANGLES,
+					floorIndices.length,
+					gl.UNSIGNED_SHORT,
+					0
+				);
+			}
+		}
+
+		gl.disable(gl.POLYGON_OFFSET_FILL);
         gl.colorMask(true, true, true, true);
 
 

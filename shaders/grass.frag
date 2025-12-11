@@ -65,10 +65,7 @@ void main() {
     vec3 N = normalize(vNormal);
     vec3 L = normalize(uLightDir);
 
-    float diff = dot(N, L) * 0.5 + 0.5;
-    diff = clamp(diff, 0.0, 1.0);
-
-    vec3 light = uAmbientColor + uLightColor * diff;
+    vec3 light = uAmbientColor + uLightColor;
 
     float h01 = remap01(vWorldPos.z, -10.0, 40.0);
     float ao  = mix(0.8, 1.0, h01);   // 0.8 in valleys, 1.0 on peaks
@@ -82,6 +79,8 @@ void main() {
     float tint = mix(0.94, 1.06, n);         // keep it close to 1.0
 
     vec3 finalColor = texColor.rgb * tint * light;
+
+    finalColor = mix(vec3(0.0, 0.0, 0.0), finalColor, shadow);
 
     float edge = uWorldRadius - 3.0;          // start fading 3 units before the edge
     float t = clamp((distFromCenter - edge) / 3.0, 0.0, 1.0);
