@@ -232,9 +232,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	const sunDir = vec3.fromValues(2.0, 1.0, 1.0);
 	vec3.normalize(sunDir, sunDir);
 
-	const lightDir = vec3.create();
-	vec3.scale(lightDir, sunDir, -1.0);
-	gl.uniform3fv(uLightDirLoc, lightDir);
+	gl.uniform3fv(uLightDirLoc, sunDir);
 
 	// warm-ish sunlight, soft ambient
 	gl.uniform3f(uLightColorLoc,   1.0, 0.99, 0.95);  // sunlight
