@@ -17,10 +17,9 @@ uniform vec3 uAmbientColor;
 uniform float uWorldRadius;
 
 void main() {
-    float r2 = dot(vWorldPos.xy, vWorldPos.xy);
-    float R2 = uWorldRadius * uWorldRadius;
-    if (r2 > R2) {
-        discard;   // don't draw this pixel at all
+    float distFromCenter = length(vWorldPos.xy);
+    if (distFromCenter > uWorldRadius) {
+        discard;
     }
 
     vec2 tiledUV = vTexCoord;  // vTexCoord already goes 0→5, so it tiles
@@ -35,5 +34,12 @@ void main() {
 
     vec3 light = uAmbientColor + uLightColor * diff;
 
-    outColor = vec4(texColor.rgb * light, texColor.a);
+    vec3 finalColor = texColor.rgb * light;
+
+    float edge = uWorldRadius - 3.0;          // start fading 3 units before the edge
+    float t = clamp((distFromCenter - edge) / 3.0, 0.0, 1.0);
+    vec3 fogColor = vec3(0.45, 0.75, 1.0);
+    finalColor = mix(finalColor, fogColor, t);
+
+    outColor = vec4(finalColor, texColor.a);
 }
