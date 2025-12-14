@@ -20,6 +20,10 @@ let lastFDown = false;
 
 const treePositions = [
 	[0, 12],
+	//[-10, -5],
+	//[15, 8],
+	//[-20, 15],
+	//[25, -10],
 ];
 
 main();
@@ -214,8 +218,8 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	const viewMatrix = mat4.create();
 	const modelMatrix = mat4.create();
 	const projMatrix = mat4.create();
-	
-	// rebuild viewMatrix from cameraPos, yaw, pitch
+	Ma
+	// rebuild viewtrix from cameraPos, yaw, pitch
 	function updateViewMatrix() {
 		const forward = vec3.fromValues(
 			Math.cos(cameraState.yaw) * Math.cos(cameraState.pitch),
@@ -430,7 +434,6 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		// --------------draw stems---------------------------
 		gl.useProgram(stemProgram);
 
-		// ---Textures -----
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, stemTexture);
 		gl.uniform1i(stemUniforms.uStemTexture, 0);
@@ -453,7 +456,6 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
     	gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
     	gl.enableVertexAttribArray(2);
 
-		// render trees
         treePositions.forEach(([xCoord, yCoord]) => {
             const model = mat4.create();
             const ground = getHeightAt(xCoord, yCoord, seed);

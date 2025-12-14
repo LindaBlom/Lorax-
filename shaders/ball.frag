@@ -43,9 +43,22 @@
         float radius = mix(baseRadius,tipRadius, pow(vShellIndex,3.0));
         float alpha = 1.0 - smoothstep(radius * 0.5, radius, dist);
         if (alpha < 0.05) discard;
-        
+
+
+
+    // LET THERE BE LIGHT
+        vec3 uAmbientColor = vec3(0.45, 0.55, 0.70); // Mjukare ambient ljus för päls
+        vec3 uLightColor = vec3(1.15, 1.05, 0.90); // Varmare solljus för päls
+
+
+        vec3 N = normalize(vNormal);
+        vec3 L = normalize(uLightDir);
+        float NdotL = max(dot(N, L), 0.0);
+
         vec4 textureColor = texture(uFurTexture, vUV);
+
+        vec3 color = textureColor.rgb * (uAmbientColor + uLightColor * NdotL);
         // RGBA
-        FragColor = vec4(textureColor.rgb, alpha);
+        FragColor = vec4(color.rgb, alpha);
 
     }

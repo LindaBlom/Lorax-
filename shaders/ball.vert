@@ -7,10 +7,13 @@ uniform mat4 uModel, uView, uProj;
 
 uniform float uShellOffset;
 uniform float uShellIndex;
+uniform float uTime;
 
 out vec2 vUV;
 out float vShellIndex;
 out vec3 vNormal;
+
+
 void main() {
     vec3 vGravity = vec3(0.0,0.0,-1.0);
     float k = pow(uShellIndex, 2.0);
