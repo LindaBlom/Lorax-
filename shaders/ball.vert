@@ -16,7 +16,7 @@ out vec3 vNormal;
 
 void main() {
 
-    vec3 centerModel = vec3(0.0,3.5,0.0 );
+    vec3 centerModel = vec3(0.1,3.5,0.1 );
 
     vec3 radial = normalize(aPosition - centerModel);
     vec3 up = vec3(0.0, 0.0, 1.0);
@@ -25,14 +25,18 @@ void main() {
 
     vec3 d0 = radial;          
     vec3 d1 = tangent;         
-    vec3 d2 = radial;          
+    vec3 d2 = normalize(radial + tangent * 0.8);       
 
     float t = clamp(uShellIndex, 0.0, 1.0);
-    // Kvadratisk Bezier: lerp(lerp(d0,d1,t), lerp(d1,d2,t), t)
+    // Bezier
     vec3 newNormal = mix(mix(d0, d1, t), mix(d1, d2, t), t);
     newNormal = normalize(newNormal);
 
-    vec3 basePos = aPosition + newNormal * (uShellOffset * uShellIndex);
+    // När z koordinaten av radien är noll så är håret längst.
+    float tipsBoost = 2.0;                      
+    float lenMul = 1.0 + tipsBoost * (1.0 - abs(radial.z));
+
+    vec3 basePos = aPosition + newNormal * (uShellOffset * uShellIndex* lenMul);
     vec3 worldPos = (uModel * vec4(basePos, 1.0)).xyz;
 
     vUV = aUV;
