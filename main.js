@@ -218,7 +218,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	const viewMatrix = mat4.create();
 	const modelMatrix = mat4.create();
 	const projMatrix = mat4.create();
-	Ma
+	
 	// rebuild viewtrix from cameraPos, yaw, pitch
 	function updateViewMatrix() {
 		const forward = vec3.fromValues(

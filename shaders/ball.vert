@@ -15,28 +15,29 @@ out vec3 vNormal;
 
 
 void main() {
-    vec3 vGravity = vec3(0.0,0.0,-1.0);
-    float k = pow(uShellIndex, 2.0);
-    float uSpiralTurns = 0.5;
 
-    // vrid runt Z-axeln
-    float angle = uSpiralTurns * 6.2831853 * uShellIndex;
-    float cosin = cos(angle), sinus = sin(angle);
-    mat3 rotZ = mat3(
-        cosin, -sinus, 0.0,
-        sinus,  cosin, 0.0,
-        0.0,0.0,1.0
-    );
+    vec3 centerModel = vec3(0.0,3.5,0.0 );
 
-    vec3 center = vec3(0.0,3.5,0.0 );
+    vec3 radial = normalize(aPosition - centerModel);
+    vec3 up = vec3(0.0, 0.0, 1.0);
+    vec3 tangent = normalize(cross(up, radial));
+    if (length(tangent) < 0.01) tangent = normalize(cross(vec3(1.0, 0.0, 0.0), radial));
 
-    vec3 basePos = aPosition + aNormal * (uShellOffset * uShellIndex);
-    vec3 modelPos = rotZ * (basePos-center) + center;
-    vec3 worldPos = (uModel * vec4(modelPos, 1.0)).xyz + vGravity * k;
+    vec3 d0 = radial;          
+    vec3 d1 = tangent;         
+    vec3 d2 = radial;          
+
+    float t = clamp(uShellIndex, 0.0, 1.0);
+    // Kvadratisk Bezier: lerp(lerp(d0,d1,t), lerp(d1,d2,t), t)
+    vec3 newNormal = mix(mix(d0, d1, t), mix(d1, d2, t), t);
+    newNormal = normalize(newNormal);
+
+    vec3 basePos = aPosition + newNormal * (uShellOffset * uShellIndex);
+    vec3 worldPos = (uModel * vec4(basePos, 1.0)).xyz;
 
     vUV = aUV;
     vShellIndex = uShellIndex;
-    vNormal = mat3(uModel) * (rotZ * aNormal);
+    vNormal = mat3(uModel) * newNormal;
 
     gl_Position = uProj * uView * vec4(worldPos, 1.0);
 }
