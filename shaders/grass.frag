@@ -159,7 +159,7 @@ void main() {
     // keep your earlier hillAO if you want, but make it subtle:
     float hillAO = computeHillAO(vWorldPos);         // your slope-based one
     float ao = heightAO * mix(1.0, hillAO, 0.35);    // subtle
-
+    //float hill = mix(1.0, hillLight, 0.25);
     vec3 light = (uAmbientColor + uLightColor) * ao * hillLight;
 
     float shadow = computePointShadow();
@@ -172,9 +172,7 @@ void main() {
     float n = valueNoise(vWorldPos.xz * 0.05);      // 0.05 = big patches, 0.2 = smaller
     float tint = mix(0.94, 1.06, n);         // keep it close to 1.0
 
-
-    vec3 graded = texColor.rgb;
-    vec3 finalColor = graded * tint * light;
+    vec3 finalColor = texColor.rgb * tint * light;
 
     float edge = uWorldRadius - 3.0;          // start fading 3 units before the edge
     float t = clamp((distFromCenter - edge) / 3.0, 0.0, 1.0);
