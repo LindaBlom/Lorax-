@@ -8,10 +8,14 @@ uniform mat4 uView;
 uniform mat4 uProj;
 
 uniform float uSeed;
+uniform float uShellIndex;
+uniform float uShellOffset;
 
 out vec2 vTexCoord;
 out vec3 vWorldPos;
 out vec3 vNormal;
+out float vShellIndex;
+
 
 float hash(vec2 p) {
     p = vec2(
@@ -55,6 +59,12 @@ void main() {
     
     vec3 normal = normalize(cross(dy, dx));
 
+
+    if (uShellIndex > 0.0) 
+        worldPos += vec3(0.0,0.0,1.0) * (uShellIndex + uShellOffset);
+    
+
+    vShellIndex = uShellIndex;
     vWorldPos = worldPos;
     vNormal   = normal;
 

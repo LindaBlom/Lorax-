@@ -4,6 +4,7 @@ precision highp float;
 in vec2 vTexCoord;
 in vec3 vNormal;
 in vec3 vWorldPos;
+in float vShellIndex;
 
 out vec4 outColor;
 
@@ -144,10 +145,8 @@ float computePointShadow() {
 
 void main() {
     float distFromCenter = length(vWorldPos.xy);
-    if (distFromCenter > uWorldRadius) {
-        discard;
-    }
-
+    if (distFromCenter > uWorldRadius) discard;
+    
     vec2 tiledUV = vTexCoord;
     vec4 texColor = texture(uGrass, tiledUV);
 
@@ -182,5 +181,31 @@ void main() {
     vec3 fogColor = vec3(0.45, 0.75, 1.0);
     finalColor = mix(finalColor, fogColor, t);
 
-    outColor = vec4(finalColor, texColor.a);
+    // FLUFFY GRASS
+    float alpha;
+    if(vShellIndex > 0.001){
+        const float HAIR_GRID = 500.0;
+
+        vec2 gridCoord =  vTexCoord * HAIR_GRID;
+        vec2 cell      = floor(gridCoord);     
+        vec2 cellUV    = fract(gridCoord);
+        // en step function med step vid 0.90
+        // om hash(cell) < step returneras 0
+        float hasHair = step(0.90, hash(cell));
+        if (hasHair < 0.5)  discard;   
+        vec2 center = vec2(0.5, 0.5);               
+        float dist  = length(cellUV - center);
+
+        float baseRadius = 0.5;                    
+        float tipRadius  = 0.1; 
+
+        float radius = mix(baseRadius,tipRadius, pow(vShellIndex,3.0));
+        alpha = 1.0 - smoothstep(radius * 0.5, radius, dist);
+
+    } else 
+        alpha = texColor.a;
+    
+
+
+    outColor = vec4(finalColor, alpha);
 }

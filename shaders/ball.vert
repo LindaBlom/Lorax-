@@ -7,7 +7,7 @@ uniform mat4 uModel, uView, uProj;
 
 uniform float uShellOffset;
 uniform float uShellIndex;
-uniform float uTime;
+
 
 out vec2 vUV;
 out float vShellIndex;
@@ -15,7 +15,7 @@ out vec3 vNormal;
 out vec3 vWorldPos;
 
 void main() {
-    vec3 centerModel = vec3(0.1,3.5,0.1 );
+    vec3 centerModel = vec3(0.1, 3.5, 0.1);
 
     vec3 radial = normalize(aPosition - centerModel);
     vec3 up = vec3(0.0, 0.0, 1.0);

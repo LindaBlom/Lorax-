@@ -7,6 +7,8 @@ import {updateCamera} from "./helpers/camera.js";
 const mat4 = glMatrix.mat4;
 const vec3 = glMatrix.vec3;
 const WORLD_RADIUS = 75.0;
+const shellCount = 1000;
+let fluffyGrass = false;
 
 // ---- perspective and camera setup ----
 const keys = {};
@@ -99,7 +101,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	const stemTexture = loadTexture(gl, "textures/birchWood.png", { minFilter: gl.LINEAR, magFilter: gl.NEAREST });
 
 	// ---- Floor Setup ----
-	const { program: floorProgram, uniforms: floorUniforms } = createShaderProgram(gl, grassVert, grassFrag, ["uLightPos", "uLightColor", "uAmbientColor", "uShadowCube", "uShadowFar", "uModel", "uView", "uProj", "uGrass", "uWorldRadius", "uSeed"]);
+	const { program: floorProgram, uniforms: floorUniforms } = createShaderProgram(gl, grassVert, grassFrag, ["uLightPos", "uLightColor", "uAmbientColor", "uShadowCube", "uShadowFar", "uModel", "uView", "uProj", "uGrass", "uWorldRadius", "uSeed", "uShellIndex","uShellOffset"]);
 
 	gl.useProgram(floorProgram);
 
@@ -117,6 +119,8 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	gl.uniform3fv(floorUniforms.uLightPos, sunPos);
 	gl.uniform3f(floorUniforms.uLightColor, 1.0, 0.99, 0.95);
 	gl.uniform3f(floorUniforms.uAmbientColor, 0.25, 0.35, 0.45);
+	gl.uniform1f(floorUniforms.uShellIndex,0.0); // inital value
+	gl.uniform1f(floorUniforms.uShellOffset, 0.2);
 
 	// ---- Sun Setup ----
 	const { program: sunProgram, uniforms: sunUniforms } = createShaderProgram(gl, sunVert, sunFrag, ["uModel", "uView", "uProj", "uSunColor"]);
@@ -475,7 +479,6 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
     	gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
     	gl.enableVertexAttribArray(2);
 
-		const shellCount = 1000;
 
 		treePositions.forEach(([xCoord, yCoord]) => {
 			const model = mat4.create();
@@ -609,10 +612,31 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 
 		const tileSize = 20.0;     // your quad covers -10..10 ⇒ size 20
 		const gridRadius = 9;      // draws (2*4+1)^2 = 81 tiles
-
+		
+		//BASEN
+		//gl.depthMask(true);
+        //gl.disable(gl.BLEND);
+		gl.uniform1f(floorUniforms.uShellIndex, 0.0);
 		drawFloorTiles(gl, floorUniforms, modelMatrix, tileSize, gridRadius, floorIndices, mat4);
+	
+		// Shells, utifrån och in
+		//gl.enable(gl.BLEND);
+        //gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+        //gl.depthMask(false);
+		const grassShellCount = 100;
 
-		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		if(fluffyGrass){
+			for (let i = 1; i < grassShellCount; i++) {
+    			const shellIndex = i / (grassShellCount - 1); // 0 -> 1, inner till outer
+    			gl.uniform1f(floorUniforms.uShellIndex, shellIndex);
+    			drawFloorTiles(gl, floorUniforms, modelMatrix, tileSize, gridRadius, floorIndices, mat4);
+			}
+		}
+
+		gl.depthMask(true);
+        gl.disable(gl.BLEND);
+
+		gl.bindFramebuffer(gl.	FRAMEBUFFER, null);
 		gl.disable(gl.DEPTH_TEST);
 		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 		gl.clearColor(0.0, 0.0, 0.0, 1.0);
