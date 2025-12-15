@@ -38,9 +38,15 @@ function main() {
 	}
 
 	function resizeCanvas() {
-		canvas.width = canvas.clientWidth;
-		canvas.height = canvas.clientHeight;
-		gl.viewport(0, 0, canvas.width, canvas.height);
+		const dpr = window.devicePixelRatio || 1;
+		const w = Math.floor(canvas.clientWidth * dpr);
+		const h = Math.floor(canvas.clientHeight * dpr);
+
+		if (canvas.width !== w || canvas.height !== h) {
+			canvas.width = w;
+			canvas.height = h;
+			gl.viewport(0, 0, w, h);
+		}
 	}
 
 	resizeCanvas();
@@ -165,26 +171,53 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 
     function resizeSceneTargets() {
         const w = gl.canvas.width;
-        const h = gl.canvas.height;
+		const h = gl.canvas.height;
 
-        gl.bindTexture(gl.TEXTURE_2D, sceneTex);
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+		// Color texture
+		gl.bindTexture(gl.TEXTURE_2D, sceneTex);
+		gl.texImage2D(
+			gl.TEXTURE_2D,
+			0,
+			gl.RGBA16F,
+			w,
+			h,
+			0,
+			gl.RGBA,
+			gl.HALF_FLOAT,
+			null
+		);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-        gl.bindRenderbuffer(gl.RENDERBUFFER, sceneDepth);
-        gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, w, h);
+		// Depth renderbuffer
+		gl.bindRenderbuffer(gl.RENDERBUFFER, sceneDepth);
+		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, w, h);
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFBO);
-        gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sceneTex, 0);
-        gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, sceneDepth);
+		// Attach
+		gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFBO);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sceneTex, 0);
+		gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, sceneDepth);
 
-        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-        gl.bindTexture(gl.TEXTURE_2D, null);
-        gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+		const status = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+		if (status !== gl.FRAMEBUFFER_COMPLETE) {
+			console.error("sceneFBO incomplete after resize:", status.toString(16));
+		}
+
+		// Cleanup binds
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+		gl.bindTexture(gl.TEXTURE_2D, null);
+		gl.bindRenderbuffer(gl.RENDERBUFFER, null);
     }
+	function handleResize() {
+		// If your main() resize already runs, this is still safe.
+		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+		resizeSceneTargets();       // realloc sceneTex + sceneDepth
+		updateProjectionMatrix();   // fix aspect ratio
+	}
+	window.addEventListener("resize", handleResize);
 
 	const SHADOW_MAP_SIZE = 2048;
 
@@ -237,11 +270,15 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 
 	const out = projMatrix;
 	const fovy = Math.PI / 4; // 45 degrees
-	const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+	//const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
 	const near = 0.1;
 	const far = 200.0;
-
-	mat4.perspective(out, fovy, aspect, near, far);
+	function updateProjectionMatrix() {
+		const aspect = gl.canvas.width / gl.canvas.height; // use actual buffer size
+		mat4.perspective(projMatrix, fovy, aspect, near, far);
+	}
+	updateProjectionMatrix();
+	//mat4.perspective(out, fovy, aspect, near, far);
 	addEventListeners(gl, keys, cameraState ,gravityEnabled, verticalVelocity, updateViewMatrix);
 	
 	const segments = 10;              // increase this for more resolution (e.g. 40, 80)
