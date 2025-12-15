@@ -1,9 +1,13 @@
 #version 300 es
+precision highp float;
+
 layout(location = 0) in vec3 aPosition;
 
 uniform mat4 uModel;
 uniform mat4 uLightVP;
 uniform float uSeed;
+
+out vec3 vWorldPos;
 
 float hash(vec2 p) {
     p = vec2(
@@ -19,7 +23,7 @@ float getHeight(vec2 pos) {
         cos(pos.y * 0.18);
 
     float n = hash(pos * 0.12);
-    float noise = (n - 0.5) * 0.25;   // ~[-0.2, 0.2]
+    float noise = (n - 0.5) * 0.25;
 
     float height = (wave + noise) * 3.0;
     return height;
@@ -28,8 +32,11 @@ float getHeight(vec2 pos) {
 void main() {
     vec4 worldPos4 = uModel * vec4(aPosition, 1.0);
     vec3 worldPos = worldPos4.xyz;
+
+    // keep your grass heightfield casting
     float height = getHeight(worldPos.xy);
     worldPos.z += height;
 
+    vWorldPos = worldPos;
     gl_Position = uLightVP * vec4(worldPos, 1.0);
 }

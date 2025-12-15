@@ -2,12 +2,13 @@
 precision highp float;
 
 in vec2 vUV;
-in vec3 vNormal;   // <-- comes from stem.vert
+in vec3 vNormal;
+in vec3 vWorldPos;
 
 uniform sampler2D uStemTexture;
-uniform vec3 uLightDir;      // direction *from* the light (same as grass)
-uniform vec3 uLightColor;    // direct sunlight color
-uniform vec3 uAmbientColor;  // ambient/sky light
+uniform vec3 uLightPos;
+uniform vec3 uLightColor;   
+uniform vec3 uAmbientColor;
 
 out vec4 FragColor;
 
@@ -20,7 +21,9 @@ void main() {
 
     // Lighting
     vec3 N = normalize(vNormal);
-    vec3 L = normalize(uLightDir);
+    vec3 toLight = uLightPos - vWorldPos;
+    float dist = length(toLight);
+    vec3 L = toLight / max(dist, 0.0001);
     float NdotL = max(dot(N, L), 0.0);
 
     // Simple Lambert + ambient

@@ -6,14 +6,12 @@ layout(location = 1) in vec2 aTexCoord;
 uniform mat4 uModel;
 uniform mat4 uView;
 uniform mat4 uProj;
-uniform mat4 uLightVP;
 
 uniform float uSeed;
 
 out vec2 vTexCoord;
 out vec3 vWorldPos;
 out vec3 vNormal;
-out vec4 vLightSpacePos;
 
 float hash(vec2 p) {
     p = vec2(
@@ -59,7 +57,6 @@ void main() {
 
     vWorldPos = worldPos;
     vNormal   = normal;
-    vLightSpacePos = uLightVP * vec4(worldPos, 1.0);
 
     gl_Position = uProj * uView * vec4(worldPos, 1.0);
 }

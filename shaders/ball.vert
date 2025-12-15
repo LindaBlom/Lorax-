@@ -12,10 +12,9 @@ uniform float uTime;
 out vec2 vUV;
 out float vShellIndex;
 out vec3 vNormal;
-
+out vec3 vWorldPos;
 
 void main() {
-
     vec3 centerModel = vec3(0.1,3.5,0.1 );
 
     vec3 radial = normalize(aPosition - centerModel);
@@ -42,6 +41,7 @@ void main() {
     vUV = aUV;
     vShellIndex = uShellIndex;
     vNormal = mat3(uModel) * newNormal;
+    vWorldPos = worldPos;
 
     gl_Position = uProj * uView * vec4(worldPos, 1.0);
 }

@@ -77,7 +77,7 @@ function main() {
 
 function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ballFrag, ballObjText,stemVert, stemFrag, stemObj, postVert, bloomFrag, shadowVert, shadowFrag) {
 	// ---- Ball Setup ----
-	const { program: ballProgram, uniforms: ballUniforms } = createShaderProgram(gl, ballVert, ballFrag, ["uModel", "uView", "uProj", "uShellOffset", "uShellIndex", "uFurTexture", "uLightDir"]);
+	const { program: ballProgram, uniforms: ballUniforms } = createShaderProgram(gl, ballVert, ballFrag, ["uModel", "uView", "uProj", "uShellOffset", "uShellIndex", "uFurTexture", "uLightPos"]);
 
 	const ballData = parseOBJ(ballObjText);
 
@@ -88,7 +88,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	const ballTexture = loadTexture(gl, "textures/treeFurPink.jpg");
 
 	// ---- Stem Setup ----
-	const { program: stemProgram, uniforms: stemUniforms } = createShaderProgram(gl, stemVert, stemFrag, ["uView", "uModel", "uProj", "uStemTexture", "uLightDir", "uLightColor", "uAmbientColor"]);
+	const { program: stemProgram, uniforms: stemUniforms } = createShaderProgram(gl, stemVert, stemFrag, ["uView", "uModel", "uProj", "uStemTexture", "uLightPos", "uLightColor", "uAmbientColor"]);
 
 	const stemData = parseOBJ(stemObj);
 
@@ -99,7 +99,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	const stemTexture = loadTexture(gl, "textures/birchWood.png", { minFilter: gl.LINEAR, magFilter: gl.NEAREST });
 
 	// ---- Floor Setup ----
-	const { program: floorProgram, uniforms: floorUniforms } = createShaderProgram(gl, grassVert, grassFrag, ["uLightDir", "uLightColor", "uAmbientColor", "uLightVP", "uShadowMap", "uShadowTexelSize", "uModel", "uView", "uProj", "uGrass", "uWorldRadius", "uSeed"]);
+	const { program: floorProgram, uniforms: floorUniforms } = createShaderProgram(gl, grassVert, grassFrag, ["uLightPos", "uLightColor", "uAmbientColor", "uShadowCube", "uShadowFar", "uModel", "uView", "uProj", "uGrass", "uWorldRadius", "uSeed"]);
 
 	gl.useProgram(floorProgram);
 
@@ -108,19 +108,18 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 
 	const sunDir = vec3.fromValues(2.0, 1.0, 1.0);
 	vec3.normalize(sunDir, sunDir);
-
-	gl.uniform3fv(floorUniforms.uLightDir, sunDir);
-	gl.uniform3f(floorUniforms.uLightColor, 1.0, 0.99, 0.95);
-	gl.uniform3f(floorUniforms.uAmbientColor, 0.25, 0.35, 0.45);
-
-	// ---- Sun Setup ----
-	const { program: sunProgram, uniforms: sunUniforms } = createShaderProgram(gl, sunVert, sunFrag, ["uModel", "uView", "uProj", "uSunColor"]);
-
 	const sunModelMatrix = mat4.create();
 	const sunDistance = 100.0;
 	const sunPos = vec3.create();
 	vec3.scale(sunPos, sunDir, sunDistance);
 	const sunBillboardRot = mat4.create();
+
+	gl.uniform3fv(floorUniforms.uLightPos, sunPos);
+	gl.uniform3f(floorUniforms.uLightColor, 1.0, 0.99, 0.95);
+	gl.uniform3f(floorUniforms.uAmbientColor, 0.25, 0.35, 0.45);
+
+	// ---- Sun Setup ----
+	const { program: sunProgram, uniforms: sunUniforms } = createShaderProgram(gl, sunVert, sunFrag, ["uModel", "uView", "uProj", "uSunColor"]);
 
 	const lightView = mat4.create();
 	const lightProj = mat4.create();
@@ -130,7 +129,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	// ---- Post-Processing Setup ----
 	const { program: postProgram, uniforms: postUniforms } = createShaderProgram(gl, postVert, bloomFrag, ["uScene"]);
 
-	const { program: shadowProgram, uniforms: shadowUniforms } = createShaderProgram(gl, shadowVert, shadowFrag, ["uModel", "uLightVP", "uSeed"]);
+	const { program: shadowProgram, uniforms: shadowUniforms } = createShaderProgram(gl, shadowVert, shadowFrag, ["uModel", "uLightVP", "uSeed", "uLightPos", "uShadowFar"]);
 
     // fullscreen quad (NDC positions + texcoords)
     const quadVerts = new Float32Array([
@@ -219,33 +218,56 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	}
 	window.addEventListener("resize", handleResize);
 
-	const SHADOW_MAP_SIZE = 2048;
+	const SHADOW_MAP_SIZE = 1024; // start with 1024; point shadows cost 6x
+	const SHADOW_NEAR = 1.0;
+	const SHADOW_FAR  = 220.0;
 
-	const shadowFBO      = gl.createFramebuffer();
-	const shadowDepthTex = gl.createTexture();
+	// One FBO reused for all 6 faces
+	const shadowFBO = gl.createFramebuffer();
 
-	gl.bindTexture(gl.TEXTURE_2D, shadowDepthTex);
-	gl.texImage2D(gl.TEXTURE_2D, 0, gl.DEPTH_COMPONENT16, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, 0, gl.DEPTH_COMPONENT, gl.UNSIGNED_SHORT, null);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-	gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	// Cubemap COLOR texture storing linear depth in .r
+	const shadowCubeTex = gl.createTexture();
+	gl.bindTexture(gl.TEXTURE_CUBE_MAP, shadowCubeTex);
 
+	for (let i = 0; i < 6; i++) {
+	gl.texImage2D(
+		gl.TEXTURE_CUBE_MAP_POSITIVE_X + i,
+		0,
+		gl.RGBA16F,
+		SHADOW_MAP_SIZE,
+		SHADOW_MAP_SIZE,
+		0,
+		gl.RGBA,
+		gl.HALF_FLOAT,
+		null
+	);
+	}
+
+	gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+	gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+
+	// Depth buffer for depth testing during shadow render
+	const shadowDepthRB = gl.createRenderbuffer();
+	gl.bindRenderbuffer(gl.RENDERBUFFER, shadowDepthRB);
+	gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+
+	// Attach depth RB once; attach cubemap face color per-pass
 	gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFBO);
-	gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, shadowDepthTex, 0);
-	// no color buffer
-	gl.drawBuffers([gl.NONE]);
-	gl.readBuffer(gl.NONE);
+	gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, shadowDepthRB);
+	gl.drawBuffers([gl.COLOR_ATTACHMENT0]);
 
 	gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-	gl.bindTexture(gl.TEXTURE_2D, null);
+	gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
+	gl.bindRenderbuffer(gl.RENDERBUFFER, null);
 
     // call once now (canvas already resized earlier)
     resizeSceneTargets();
 
 	// set shadow texel size (used for PCF sampling in shaders)
 	gl.useProgram(floorProgram);
-	gl.uniform2f(floorUniforms.uShadowTexelSize, 1.0 / SHADOW_MAP_SIZE, 1.0 / SHADOW_MAP_SIZE);
 
 	// --- Matrices ---
 	const viewMatrix = mat4.create();
@@ -268,17 +290,15 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	// call once to initialize
 	updateViewMatrix();
 
-	const out = projMatrix;
 	const fovy = Math.PI / 4; // 45 degrees
-	//const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
 	const near = 0.1;
 	const far = 200.0;
+
 	function updateProjectionMatrix() {
 		const aspect = gl.canvas.width / gl.canvas.height; // use actual buffer size
 		mat4.perspective(projMatrix, fovy, aspect, near, far);
 	}
 	updateProjectionMatrix();
-	//mat4.perspective(out, fovy, aspect, near, far);
 	addEventListeners(gl, keys, cameraState ,gravityEnabled, verticalVelocity, updateViewMatrix);
 	
 	const segments = 10;              // increase this for more resolution (e.g. 40, 80)
@@ -332,82 +352,96 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	function drawScene() {
 		// ---- Shadow Pass ----
 		gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFBO);
-        gl.viewport(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
-        gl.enable(gl.DEPTH_TEST);
-        gl.colorMask(false, false, false, false);   // depth only
-        gl.clear(gl.DEPTH_BUFFER_BIT);
+		gl.viewport(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+		gl.enable(gl.DEPTH_TEST);
+		gl.disable(gl.CULL_FACE); // keep it simple first
 
-        // recompute light matrices (sunPos already defined earlier)
-        const up = [0, 0, 1];
-        mat4.lookAt(lightView, sunPos, [0, 0, 0], up);
-        mat4.ortho(
-            lightProj,
-            -lightOrthoSize, lightOrthoSize,
-            -lightOrthoSize, lightOrthoSize,
-            1.0, 200.0
-        );
-        mat4.multiply(lightVP, lightProj, lightView);
+		// 6 cubemap face directions + up vectors
+		const faceTargets = [
+		{ dir: [ 1, 0, 0], up: [0,-1, 0] }, // +X
+		{ dir: [-1, 0, 0], up: [0,-1, 0] }, // -X
+		{ dir: [ 0, 1, 0], up: [0, 0, 1] }, // +Y
+		{ dir: [ 0,-1, 0], up: [0, 0,-1] }, // -Y
+		{ dir: [ 0, 0, 1], up: [0,-1, 0] }, // +Z
+		{ dir: [ 0, 0,-1], up: [0,-1, 0] }, // -Z
+		];
 
-        gl.useProgram(shadowProgram);
-        gl.uniformMatrix4fv(shadowUniforms.uLightVP, false, lightVP);
+		// Point-light projection: 90° fov, aspect 1
+		mat4.perspective(lightProj, Math.PI / 2, 1.0, SHADOW_NEAR, SHADOW_FAR);
 
-        gl.enable(gl.CULL_FACE);
-        gl.cullFace(gl.BACK);
-        gl.enable(gl.POLYGON_OFFSET_FILL);
-        gl.polygonOffset(2.0, 4.0);
-
-        // ---- draw ball into shadow map ----
-        treePositions.forEach(([xCoord, yCoord]) => {
-            const model = mat4.create();
-            const ground = getHeightAt(xCoord, yCoord, seed);
-            mat4.translate(model, model, [xCoord, yCoord + 11, ground + 3]);
-            mat4.rotateX(model, model, Math.PI / 2);
-            mat4.scale(model, model, [3, 3, 3]);
-
-            gl.uniformMatrix4fv(shadowUniforms.uModel, false, model);
-
-            gl.bindBuffer(gl.ARRAY_BUFFER, ballVBO);
-            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
-            gl.enableVertexAttribArray(0);
-
-            gl.drawArrays(gl.TRIANGLES, 0, ballData.vertexCount);
-        });
-
-        // ---- draw stems into shadow map ----
-        treePositions.forEach(([xCoord, yCoord]) => {
-            const model = mat4.create();
-            const ground = getHeightAt(xCoord, yCoord, seed);
-            mat4.translate(model, model, [xCoord, yCoord, ground]);
-            mat4.rotateX(model, model, Math.PI / 2);
-            mat4.scale(model, model, [3, 3, 3]);
-
-            gl.uniformMatrix4fv(shadowUniforms.uModel, false, model);
-
-            gl.bindBuffer(gl.ARRAY_BUFFER, stemVBO);
-            gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
-            gl.enableVertexAttribArray(0);
-
-            gl.drawArrays(gl.TRIANGLES, 0, stemData.vertexCount);
-        });
-
-		// ---- draw floor into shadow map (so grass heightfield casts shadows) ----
-		// local tile params (match the ones used in the main pass)
-		const tileSize_shadow = 20.0;
-		const gridRadius_shadow = 9;
-
-		gl.bindBuffer(gl.ARRAY_BUFFER, floorVBO);
-		// floor VBO layout: 3 pos, 2 uv => stride = 5 * 4
-		gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 5 * 4, 0);
-		gl.enableVertexAttribArray(0);
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, floorEBO);
-
-		// ensure seed matches grass shader noise
+		gl.useProgram(shadowProgram);
+		gl.uniform3fv(shadowUniforms.uLightPos, sunPos);
+		gl.uniform1f(shadowUniforms.uShadowFar, SHADOW_FAR);
 		gl.uniform1f(shadowUniforms.uSeed, seed);
 
-		drawFloorTiles(gl, shadowUniforms, modelMatrix, tileSize_shadow, gridRadius_shadow, floorIndices, mat4);
+		for (let face = 0; face < 6; face++) {
+			// Attach cubemap FACE as render target
+			gl.framebufferTexture2D(
+				gl.FRAMEBUFFER,
+				gl.COLOR_ATTACHMENT0,
+				gl.TEXTURE_CUBE_MAP_POSITIVE_X + face,
+				shadowCubeTex,
+				0
+			);
 
-		gl.disable(gl.POLYGON_OFFSET_FILL);
-        gl.colorMask(true, true, true, true);
+			gl.clearColor(1, 0, 0, 1); // optional debug: "far depth"
+			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+			// Look direction for this face
+			const target = vec3.create();
+			vec3.add(target, sunPos, faceTargets[face].dir);
+			mat4.lookAt(lightView, sunPos, target, faceTargets[face].up);
+
+			mat4.multiply(lightVP, lightProj, lightView);
+			gl.uniformMatrix4fv(shadowUniforms.uLightVP, false, lightVP);
+
+			// ---- draw balls ----
+			treePositions.forEach(([xCoord, yCoord]) => {
+				const model = mat4.create();
+				const ground = getHeightAt(xCoord, yCoord, seed);
+				mat4.translate(model, model, [xCoord, yCoord + 11, ground + 3]);
+				mat4.rotateX(model, model, Math.PI / 2);
+				mat4.scale(model, model, [3, 3, 3]);
+
+				gl.uniformMatrix4fv(shadowUniforms.uModel, false, model);
+
+				gl.bindBuffer(gl.ARRAY_BUFFER, ballVBO);
+				gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+				gl.enableVertexAttribArray(0);
+
+				gl.drawArrays(gl.TRIANGLES, 0, ballData.vertexCount);
+			});
+
+			// ---- draw stems ----
+			treePositions.forEach(([xCoord, yCoord]) => {
+				const model = mat4.create();
+				const ground = getHeightAt(xCoord, yCoord, seed);
+				mat4.translate(model, model, [xCoord, yCoord, ground]);
+				mat4.rotateX(model, model, Math.PI / 2);
+				mat4.scale(model, model, [3, 3, 3]);
+
+				gl.uniformMatrix4fv(shadowUniforms.uModel, false, model);
+
+				gl.bindBuffer(gl.ARRAY_BUFFER, stemVBO);
+				gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 0, 0);
+				gl.enableVertexAttribArray(0);
+
+				gl.drawArrays(gl.TRIANGLES, 0, stemData.vertexCount);
+			});
+
+			// ---- draw floor into shadow cubemap ----
+			const tileSize_shadow = 20.0;
+			const gridRadius_shadow = 9;
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, floorVBO);
+			gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 5 * 4, 0);
+			gl.enableVertexAttribArray(0);
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, floorEBO);
+
+			drawFloorTiles(gl, shadowUniforms, modelMatrix, tileSize_shadow, gridRadius_shadow, floorIndices, mat4);
+		}
+
+		gl.bindFramebuffer(gl.FRAMEBUFFER, null);
 
 		// ---- Main Render Pass ----
 		gl.bindFramebuffer(gl.FRAMEBUFFER, sceneFBO);
@@ -424,7 +458,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		gl.bindTexture(gl.TEXTURE_2D, ballTexture);
 		gl.uniform1i(ballUniforms.uFurTexture, 0);
 
-		gl.uniform3fv(ballUniforms.uLightDir, sunDir);
+		gl.uniform3fv(ballUniforms.uLightPos, sunPos);
 
 		gl.uniformMatrix4fv(ballUniforms.uView, false, viewMatrix);
 		gl.uniformMatrix4fv(ballUniforms.uProj, false, projMatrix);
@@ -474,7 +508,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, stemTexture);
 		gl.uniform1i(stemUniforms.uStemTexture, 0);
-		gl.uniform3fv(stemUniforms.uLightDir, sunDir);
+		gl.uniform3fv(stemUniforms.uLightPos, sunPos);
 		gl.uniform3f(stemUniforms.uLightColor, 1.0, 0.99, 0.95);
 		gl.uniform3f(stemUniforms.uAmbientColor, 0.25, 0.35, 0.45);
 
@@ -554,11 +588,12 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		gl.uniformMatrix4fv(floorUniforms.uProj, false, projMatrix);
 		gl.uniform1f(floorUniforms.uWorldRadius, WORLD_RADIUS); 
 
-		gl.uniformMatrix4fv(floorUniforms.uLightVP, false, lightVP);
+		gl.uniform3fv(floorUniforms.uLightPos, sunPos);
+		gl.uniform1f(floorUniforms.uShadowFar, SHADOW_FAR);
 
 		gl.activeTexture(gl.TEXTURE1);
-        gl.bindTexture(gl.TEXTURE_2D, shadowDepthTex);
-        gl.uniform1i(floorUniforms.uShadowMap, 1);
+		gl.bindTexture(gl.TEXTURE_CUBE_MAP, shadowCubeTex);
+		gl.uniform1i(floorUniforms.uShadowCube, 1);
 
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, grassTexture);
