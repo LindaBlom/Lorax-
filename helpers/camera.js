@@ -1,51 +1,55 @@
 const vec3 = glMatrix.vec3;
 
 export function updateCamera(params) {
-    let { keys, cameraState, gravityEnabled, verticalVelocity, cameraPos, seed, treePositions, updateViewMatrix, smoothedCameraPos, lastFDown, gravity, WORLD_RADIUS, applyGroundCollision, applyWorldBoundsCollision, applyTreeCollision } = params;
+    let { keys, cameraState, gravityEnabled, verticalVelocity, cameraPos, seed, treePositions, updateViewMatrix, smoothedCameraPos, lastFDown, gravity, WORLD_RADIUS, applyGroundCollision, applyWorldBoundsCollision, applyTreeCollision, deltaTime} = params;
 
-    let speed = 0.2;
-    if (keys["shift"]) speed = 0.4;
+    const dt = Math.min(Math.max(deltaTime || 0, 0), 0.05);
+
+    const baseSpeed = 8.0; // units per second (tune this)
+    const moveSpeed = baseSpeed * (keys["shift"] ? 2.0 : 1.0);
+    
 
     if (keys["f"] && !lastFDown) {
         gravityEnabled = !gravityEnabled;
     }
     lastFDown = keys["f"];
 
-    if (keys[" "]) {
-        verticalVelocity = 0.5; // jump
+    if (keys[" "] && gravityEnabled && Math.abs(verticalVelocity) < 0.001){
+        verticalVelocity = 30.0; // jump
     }
 
     if (gravityEnabled) {
-        verticalVelocity += gravity;         // accelerate downward
-        cameraPos[2] += verticalVelocity;    // apply vertical motion
+        verticalVelocity += (gravity * dt);         // accelerate downward
+        cameraPos[2] += (verticalVelocity * dt);    // apply vertical motion
     } else {
         verticalVelocity = 0;  // no gravity = no vertical speed
     }
 
     const forward = vec3.fromValues(Math.cos(cameraState.yaw), Math.sin(cameraState.yaw), 0);
     const right   = vec3.fromValues(forward[1], -forward[0], 0);
+    const step = moveSpeed * dt;
 
     if (keys["w"]) {
-        vec3.scaleAndAdd(cameraPos, cameraPos, forward, speed);
+        vec3.scaleAndAdd(cameraPos, cameraPos, forward, step);
     }
     if (keys["s"]) {
-        vec3.scaleAndAdd(cameraPos, cameraPos, forward, -speed);
+        vec3.scaleAndAdd(cameraPos, cameraPos, forward, -step);
     }
     if (keys["a"]) {
-        vec3.scaleAndAdd(cameraPos, cameraPos, right, -speed);
+        vec3.scaleAndAdd(cameraPos, cameraPos, right, -step);
     }
     if (keys["d"]) {
-        vec3.scaleAndAdd(cameraPos, cameraPos, right, speed);
+        vec3.scaleAndAdd(cameraPos, cameraPos, right, step);
     }
     if (keys["e"] && !gravityEnabled) {
-        cameraPos[2] += speed;
+        cameraPos[2] += step;
     }
     if (keys["q"] && !gravityEnabled) {
-        cameraPos[2] -= speed;
+        cameraPos[2] -= step;
     }
 
     // arrow keys also rotate view (optional)
-    const rotationSpeed = 0.02;
+    const rotationSpeed = 1.5 * dt;
     if (keys["arrowleft"]) {
         cameraState.yaw += rotationSpeed;
     }
@@ -68,10 +72,11 @@ export function updateCamera(params) {
     applyWorldBoundsCollision(cameraPos, WORLD_RADIUS);
     applyTreeCollision(cameraPos, treePositions, seed);
 
-    const smoothing = 0.15; // 0.05 = very smooth, 0.3 = more snappy
+    const smoothingPerSecond = 12.0;              // tune: 8..20
+    const alpha = 1.0 - Math.exp(-smoothingPerSecond * dt);
 
     for (let i = 0; i < 3; i++) {
-        smoothedCameraPos[i] += (cameraPos[i] - smoothedCameraPos[i]) * smoothing;
+        smoothedCameraPos[i] += (cameraPos[i] - smoothedCameraPos[i]) * alpha;
     }
 
     updateViewMatrix();

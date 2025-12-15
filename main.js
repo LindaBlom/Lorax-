@@ -17,8 +17,9 @@ const cameraPos = vec3.fromValues(0, -30, 15); // starting position
 let smoothedCameraPos = [...cameraPos];
 let gravityEnabled = true;
 let verticalVelocity = 0;     // z-velocity
-const gravity = -0.08;        // tweak as you like
+const gravity = -69;        // tweak as you like
 let lastFDown = false;
+let lastTime = performance.now();
 
 const treePositions = [
 	[0, 12],
@@ -342,10 +343,13 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, sunEBO);
 	gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, sunIndices, gl.STATIC_DRAW);
 
-	render();
+	requestAnimationFrame(render);
 
-	function render(){
-		const result = updateCamera({ keys, cameraState, gravityEnabled, verticalVelocity, cameraPos, seed, treePositions, updateViewMatrix, smoothedCameraPos, lastFDown, gravity, WORLD_RADIUS, applyGroundCollision, applyWorldBoundsCollision, applyTreeCollision });
+	function render(now){
+		const deltaTime = Math.min((now - lastTime) / 1000, 0.05); // seconds, clamp
+  		lastTime = now;
+		
+		const result = updateCamera({ keys, cameraState, gravityEnabled, verticalVelocity, cameraPos, seed, treePositions, updateViewMatrix, smoothedCameraPos, lastFDown, gravity, WORLD_RADIUS, applyGroundCollision, applyWorldBoundsCollision, applyTreeCollision, deltaTime});
 		gravityEnabled = result.gravityEnabled;
 		verticalVelocity = result.verticalVelocity;
 		lastFDown = result.lastFDown;
