@@ -1,5 +1,3 @@
-// ---- Graphics Helper Functions ----
-
 function compileShader(gl, source, type) {
 	const shader = gl.createShader(type);
 	gl.shaderSource(shader, source);
@@ -27,7 +25,7 @@ export function createShaderProgram(gl, vertSrc, fragSrc, uniformNames = []) {
 	uniformNames.forEach(name => {
 		uniforms[name] = gl.getUniformLocation(program, name);
 	});
-	return { program, uniforms };
+	return {program, uniforms};
 }
 
 export function createBuffer(gl, data, location, size, stride = 0, offset = 0) {

@@ -29,7 +29,6 @@ float valueNoise(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
 
-    // smoothstep curve for interpolation
     vec2 u = f * f * (3.0 - 2.0 * f);
 
     float a = hash(i + vec2(0.0, 0.0));
@@ -42,7 +41,7 @@ float valueNoise(vec2 p) {
 
 float getHeightForAO(vec2 pos) {
     float wave = 0.5 * sin(pos.x * 0.18) * cos(pos.y * 0.18);
-    return wave * 3.0; // no noise here
+    return wave * 3.0;
 }
 
 float getHeight(vec2 pos) {
@@ -57,7 +56,6 @@ float getHeight(vec2 pos) {
 }
 
 float computeHillAO(vec3 worldPos) {
-    // sample spacing in world units (smaller = sharper detail)
     float s = 0.6;
 
     float hL = getHeightForAO(worldPos.xy + vec2(-s, 0.0));
@@ -65,35 +63,28 @@ float computeHillAO(vec3 worldPos) {
     float hD = getHeightForAO(worldPos.xy + vec2(0.0, -s));
     float hU = getHeightForAO(worldPos.xy + vec2(0.0,  s));
 
-    // gradient magnitude (how steep the terrain is)
     float dx = (hR - hL) / (2.0 * s);
     float dy = (hU - hD) / (2.0 * s);
     float slope = sqrt(dx*dx + dy*dy);
 
-    // Turn slope into an AO-ish factor:
-    // steep areas get a bit darker => hills become readable, but NOT blurry
     float ao = 1.0 - clamp(slope * 0.35, 0.0, 0.35);
 
     return ao;
 }
 
 float computeHillLight(vec3 worldPos) {
-    // “sun direction” on the ground plane (like old directional look)
     vec2 dirXY = (uLightPos - worldPos).xy;
     float len2 = max(length(dirXY), 1e-4);
     dirXY /= len2;
 
-    // sample distance in world units (bigger = smoother hills)
     float s = 2.0;
 
     float h0 = getHeightForAO(worldPos.xy);
-    float h1 = getHeightForAO(worldPos.xy - dirXY * s);      // toward “incoming light”
+    float h1 = getHeightForAO(worldPos.xy - dirXY * s);    
     float h2 = getHeightForAO(worldPos.xy - dirXY * (2.0*s));
 
-    // if terrain rises toward the light => darker (reads as hill shadowing)
     float rise = (h1 - h0) + 0.5*(h2 - h0);
 
-    // map to factor (tweak k + clamp range)
     float k = 0.25;
     return clamp(1.0 - rise * k, 0.65, 1.05);
 }
@@ -103,15 +94,13 @@ float computePointShadow() {
     float currentDist = length(fragToLight);
     vec3 dir = fragToLight / max(currentDist, 0.0001);
 
-    // Orthonormal basis around dir (prevents drift / seams bias)
     vec3 up = (abs(dir.z) < 0.999) ? vec3(0.0, 0.0, 1.0) : vec3(0.0, 1.0, 0.0);
     vec3 tangent   = normalize(cross(up, dir));
     vec3 bitangent = cross(dir, tangent);
 
-    // Radius controls softness. Bigger = softer but more “washy”
     const float SHADOW_MAP_SIZE = 1024.0;
-    float radius = (2.0 / SHADOW_MAP_SIZE) * (0.6 + 0.4 * (currentDist / uShadowFar));;   // ~0.00244
-    float bias   = 0.4;      // tweak 0.4..1.0 depending on acne/panning
+    float radius = (2.0 / SHADOW_MAP_SIZE) * (0.6 + 0.4 * (currentDist / uShadowFar));
+    float bias   = 0.4;
 
     vec2 disk[16];
     disk[0]  = vec2( 0.00,  0.00);
@@ -151,30 +140,25 @@ void main() {
     vec4 texColor = texture(uGrass, tiledUV);
 
     float h01 = remap01(vWorldPos.z, -10.0, 40.0);
-    float heightAO = mix(0.8, 1.0, h01);   // same vibe as old shader
+    float heightAO = mix(0.8, 1.0, h01);
 
-    // hill readability term (directional, but driven by point light position)
     float hillLight = computeHillLight(vWorldPos);
 
-    // keep your earlier hillAO if you want, but make it subtle:
-    float hillAO = computeHillAO(vWorldPos);         // your slope-based one
-    float ao = heightAO * mix(1.0, hillAO, 0.35);    // subtle
-    //float hill = mix(1.0, hillLight, 0.25);
+    float hillAO = computeHillAO(vWorldPos);
+    float ao = heightAO * mix(1.0, hillAO, 0.35);
     vec3 light = (uAmbientColor + uLightColor) * ao * hillLight;
 
     float shadow = computePointShadow();
-    // in shadow: keep 40% of light, in sun: 100%
-    shadow = smoothstep(0.15, 0.95, shadow);    // softer penumbra
-    float shadowMin = 0.72;                     // was 0.55
+    shadow = smoothstep(0.15, 0.95, shadow);  
+    float shadowMin = 0.72;                   
     light *= mix(shadowMin, 1.0, shadow);
-    //light *= mix(0.55, 1.0, shadow);
 
-    float n = valueNoise(vWorldPos.xz * 0.05);      // 0.05 = big patches, 0.2 = smaller
-    float tint = mix(0.94, 1.06, n);         // keep it close to 1.0
+    float n = valueNoise(vWorldPos.xz * 0.05);    
+    float tint = mix(0.94, 1.06, n);       
 
     vec3 finalColor = texColor.rgb * tint * light;
 
-    float edge = uWorldRadius - 3.0;          // start fading 3 units before the edge
+    float edge = uWorldRadius - 3.0; 
     float t = clamp((distFromCenter - edge) / 3.0, 0.0, 1.0);
     vec3 fogColor = vec3(0.45, 0.75, 1.0);
     finalColor = mix(finalColor, fogColor, t);
@@ -203,7 +187,5 @@ void main() {
     } else 
         alpha = texColor.a;
     
-
-
     outColor = vec4(finalColor, alpha);
 }

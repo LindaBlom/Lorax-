@@ -8,7 +8,6 @@ uniform mat4 uModel, uView, uProj;
 uniform float uShellOffset;
 uniform float uShellIndex;
 
-
 out vec2 vUV;
 out float vShellIndex;
 out vec3 vNormal;
@@ -26,8 +25,8 @@ void main() {
     vec3 d1 = tangent;         
     vec3 d2 = normalize(radial + tangent * 0.8);       
 
-    float t = clamp(uShellIndex, 0.0, 1.0);
-    // Bezier
+    float t = uShellIndex;
+    // Bezier   
     vec3 newNormal = mix(mix(d0, d1, t), mix(d1, d2, t), t);
     newNormal = normalize(newNormal);
 

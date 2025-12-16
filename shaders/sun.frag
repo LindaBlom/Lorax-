@@ -7,20 +7,17 @@ out vec4 outColor;
 uniform vec3 uSunColor;
 
 void main() {
-    // vUV is 0..1, transform to -1..1
     vec2 p = vUV * 2.0 - 1.0;
     float r = length(p);
 
-    // soft circular disc
-    float alpha = smoothstep(1.0, 0.6, r);  // edge from 0.6->1.0
+    float alpha = smoothstep(1.0, 0.6, r);
     alpha = clamp(alpha, 0.0, 1.0);
 
-    // fade outside the sun
     if (r > 1.0) {
         alpha = 0.0;
     }
 
-    vec3 HDRColor = uSunColor * alpha * 5.0; // boost brightness for HDR
+    vec3 HDRColor = uSunColor * alpha * 5.0;
 
     outColor = vec4(HDRColor, alpha);
 }

@@ -33,7 +33,6 @@ void main() {
     vec4 worldPos4 = uModel * vec4(aPosition, 1.0);
     vec3 worldPos = worldPos4.xyz;
 
-    // keep your grass heightfield casting
     float height = getHeight(worldPos.xy);
     worldPos.z += height;
 
