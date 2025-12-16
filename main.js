@@ -7,6 +7,7 @@ import {updateCamera} from "./helpers/camera.js";
 const mat4 = glMatrix.mat4;
 const vec3 = glMatrix.vec3;
 const WORLD_RADIUS = 75.0;
+const STEM_BASE_OFFSET = -1.0; // world-space tweak so stem base touches ground
 const shellCount = 1000;
 let fluffyGrass = true;
 let lastGDown = false;
@@ -23,11 +24,19 @@ let lastFDown = false;
 let lastTime = performance.now();
 
 const treePositions = [
-	[0, 12],
-	//[-10, -5],
-	//[15, 8],
-	//[-20, 15],
-	//[25, -10],
+	[18, 22],
+	[-32, 12],
+	[-45, -20],
+	[0, 60],
+	[22, -38],
+	[10, -8],
+	[-14, -10],
+	[6, 16],
+	[-18, 20],
+	[24, 6],
+	[-22, -12],
+	[12, 0],
+	[0, 18]
 ];
 
 main();
@@ -377,7 +386,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 			treePositions.forEach(([xCoord, yCoord]) => {
 				const model = mat4.create();
 				const ground = getHeightAt(xCoord, yCoord, seed);
-				mat4.translate(model, model, [xCoord, yCoord + 11, ground + 2.8]);
+				mat4.translate(model, model, [xCoord, yCoord + 11, ground + 3 + STEM_BASE_OFFSET]);
 				mat4.rotateX(model, model, Math.PI / 2);
 				mat4.scale(model, model, [3, 3, 3]);
 
@@ -394,7 +403,8 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 			treePositions.forEach(([xCoord, yCoord]) => {
 				const model = mat4.create();
 				const ground = getHeightAt(xCoord, yCoord, seed);
-				mat4.translate(model, model, [xCoord, yCoord, ground - 0.2]);
+				// Match main pass and add shared base offset so stem sits flush
+				mat4.translate(model, model, [xCoord, yCoord, ground + STEM_BASE_OFFSET]);
 				mat4.rotateX(model, model, Math.PI / 2);
 				mat4.scale(model, model, [3, 3, 3]);
 
@@ -456,7 +466,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		treePositions.forEach(([xCoord, yCoord]) => {
 			const model = mat4.create();
 			const ground = getHeightAt(xCoord, yCoord, seed);
-			mat4.translate(model, model, [xCoord, yCoord+11, ground + 3]);
+			mat4.translate(model, model, [xCoord, yCoord + 11, ground + 3]);
 			mat4.rotateX(model, model, Math.PI / 2);
 			mat4.scale(model, model, [3, 3, 3]);
 
@@ -503,10 +513,10 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
     	gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
     	gl.enableVertexAttribArray(2);
 
-        treePositions.forEach(([xCoord, yCoord]) => {
-            const model = mat4.create();
-            const ground = getHeightAt(xCoord, yCoord, seed);
-            mat4.translate(model, model, [xCoord, yCoord, ground]);
+		treePositions.forEach(([xCoord, yCoord]) => {
+			const model = mat4.create();
+			const ground = getHeightAt(xCoord, yCoord, seed);
+			mat4.translate(model, model, [xCoord, yCoord, ground + STEM_BASE_OFFSET]);
 			mat4.rotateX(model, model, Math.PI / 2);
 			mat4.scale(model,model,[3,3,3]);
             gl.uniformMatrix4fv(stemUniforms.uModel, false, model);
