@@ -42,7 +42,7 @@ void main() {
 
     // Sway
     vec2 windDir = normalize(vec2(1.0,1.0));
-    float phase = dot(worldPos.xz, windDir * 0.01) + uTime * 0.0015;
+    float phase = dot(worldPos.xy, windDir * 0.01) + uTime * 0.0015;
     float sway  = sin(phase) * 0.5;
     vec2 offset =  windDir * sway;
     worldPos += vec3(offset, 1.0);

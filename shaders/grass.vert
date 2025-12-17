@@ -60,11 +60,11 @@ void main() {
         vec2 windDir = normalize(vec2(1.0,1.0));
 
         //sway
-        float phase = dot(worldPos.xz, windDir * 0.3) + uTime * 0.01;
-        float sway  = sin(phase) * 0.1;
-        vec2 offset =  windDir * sway * uShellIndex;
-        worldPos += vec3(offset, 1.0);
-
+        //float phase = dot(worldPos.xy, windDir * 0.3) + uTime * 0.01;
+        //float sway  = sin(phase) * 0.1;
+        //vec2 offset =  windDir * sway * uShellIndex;
+        //worldPos += vec3(offset, 1.0);
+        
         // shell pos
         worldPos += vec3(0.0,0.0,1.0) * (uShellIndex + uShellOffset);
     }

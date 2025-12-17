@@ -165,14 +165,14 @@ void main() {
     float alpha;
     if(vShellIndex > 0.001){
 
-        const float HAIR_GRID = 400.0;
+        const float HAIR_GRID = 500.0;
 
         vec2 gridCoord =  vTexCoord * HAIR_GRID;
         vec2 cell      = floor(gridCoord);     
         vec2 cellUV    = fract(gridCoord);
         // en step function med step vid 0.90
         // om hash(cell) < step returneras 0
-        float hasHair = step(0.95, hash(cell));
+        float hasHair = step(0.90, hash(cell));
         if (hasHair < 0.5)  discard;   
         vec2 center = vec2(0.5, 0.5);               
         float dist  = length(cellUV - center);
