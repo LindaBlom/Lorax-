@@ -10,6 +10,7 @@ uniform mat4 uProj;
 uniform float uSeed;
 uniform float uShellIndex;
 uniform float uShellOffset;
+uniform float uTime;
 
 out vec2 vTexCoord;
 out vec3 vWorldPos;
@@ -26,9 +27,7 @@ float hash(vec2 p) {
 }
 
 float getHeight(vec2 pos) {
-    float wave =
-        0.5 * sin(pos.x * 0.18) *
-        cos(pos.y * 0.18);
+    float wave =0.5 * sin(pos.x * 0.18) *cos(pos.y * 0.18);
 
     float n = hash(pos * 0.12);
     float noise = (n - 0.5) * 0.25;   // ~[-0.2, 0.2]
@@ -60,10 +59,19 @@ void main() {
     vec3 normal = normalize(cross(dy, dx));
 
 
-    if (uShellIndex > 0.0) 
-        worldPos += vec3(0.0,0.0,1.0) * (uShellIndex + uShellOffset);
-    
+    if (uShellIndex > 0.0){ 
+        vec2 windDir = normalize(vec2(1.0,1.0));
 
+        //sway
+        float phase = dot(worldPos.xz, windDir * 0.3) + uTime * 0.01;
+        float sway  = sin(phase) * 0.1;
+        vec2 offset =  windDir * sway * uShellIndex;
+        worldPos += vec3(offset, 1.0);
+
+        // shell pos
+        worldPos += vec3(0.0,0.0,1.0) * (uShellIndex + uShellOffset);
+    }
+    
     vShellIndex = uShellIndex;
     vWorldPos = worldPos;
     vNormal   = normal;

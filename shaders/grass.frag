@@ -46,9 +46,7 @@ float getHeightForAO(vec2 pos) {
 }
 
 float getHeight(vec2 pos) {
-    float wave =
-        0.5 * sin(pos.x * 0.18) *
-        cos(pos.y * 0.18);
+    float wave = 0.5 * sin(pos.x * 0.18) * cos(pos.y * 0.18);
 
     float n = valueNoise(pos * 0.12);
     float noise = (n - 0.5) * 0.25;
@@ -182,22 +180,23 @@ void main() {
     // FLUFFY GRASS
     float alpha;
     if(vShellIndex > 0.001){
-        const float HAIR_GRID = 500.0;
+
+        const float HAIR_GRID = 100.0;
 
         vec2 gridCoord =  vTexCoord * HAIR_GRID;
         vec2 cell      = floor(gridCoord);     
         vec2 cellUV    = fract(gridCoord);
         // en step function med step vid 0.90
         // om hash(cell) < step returneras 0
-        float hasHair = step(0.90, hash(cell));
+        float hasHair = step(0.95, hash(cell));
         if (hasHair < 0.5)  discard;   
         vec2 center = vec2(0.5, 0.5);               
         float dist  = length(cellUV - center);
 
-        float baseRadius = 0.5;                    
-        float tipRadius  = 0.1; 
+        float baseRadius = 0.1;                    
+        float tipRadius  = 0.001; 
 
-        float radius = mix(baseRadius,tipRadius, pow(vShellIndex,3.0));
+        float radius = mix(baseRadius,tipRadius, pow(vShellIndex,4.0));
         alpha = 1.0 - smoothstep(radius * 0.5, radius, dist);
 
     } else 

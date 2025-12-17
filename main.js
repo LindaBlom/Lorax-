@@ -8,14 +8,14 @@ const mat4 = glMatrix.mat4;
 const vec3 = glMatrix.vec3;
 const WORLD_RADIUS = 75.0;
 const shellCount = 1000;
-let fluffyGrass = false;
+let fluffyGrass = true;
 
 // ---- perspective and camera setup ----
 const keys = {};
 const cameraState = { yaw: Math.PI / 2, pitch: -0.2 };
 const cameraPos = vec3.fromValues(0, -30, 15); // starting position
 let smoothedCameraPos = [...cameraPos];
-let gravityEnabled = true;
+let gravityEnabled = false;
 let verticalVelocity = 0;     // z-velocity
 const gravity = -69;        // tweak as you like
 let lastFDown = false;
@@ -33,6 +33,7 @@ main();
 
 // ---- Main Application ----
 function main() {
+	console.log( document.querySelector("#gl-canvas"));
 	const canvas = document.querySelector("#gl-canvas");
 	const gl = canvas.getContext("webgl2");
 	if (!gl) {
@@ -80,7 +81,7 @@ function main() {
 
 function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ballFrag, ballObjText,stemVert, stemFrag, stemObj, postVert, bloomFrag, shadowVert, shadowFrag) {
 	// ---- Ball Setup ----
-	const { program: ballProgram, uniforms: ballUniforms } = createShaderProgram(gl, ballVert, ballFrag, ["uModel", "uView", "uProj", "uShellOffset", "uShellIndex", "uFurTexture", "uLightPos"]);
+	const { program: ballProgram, uniforms: ballUniforms } = createShaderProgram(gl, ballVert, ballFrag, ["uModel", "uView", "uProj", "uShellOffset", "uShellIndex", "uFurTexture", "uLightPos", "uTime"]);
 
 	const ballData = parseOBJ(ballObjText);
 
@@ -91,7 +92,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	const ballTexture = loadTexture(gl, "textures/treeFurPink.jpg");
 
 	// ---- Stem Setup ----
-	const { program: stemProgram, uniforms: stemUniforms } = createShaderProgram(gl, stemVert, stemFrag, ["uView", "uModel", "uProj", "uStemTexture", "uLightPos", "uLightColor", "uAmbientColor"]);
+	const { program: stemProgram, uniforms: stemUniforms } = createShaderProgram(gl, stemVert, stemFrag, ["uView", "uModel", "uProj", "uStemTexture", "uLightPos", "uLightColor", "uAmbientColor", "uTime", "uStemBaseZ","uStemTopZ"]);
 
 	const stemData = parseOBJ(stemObj);
 
@@ -102,7 +103,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	const stemTexture = loadTexture(gl, "textures/birchWood.png", { minFilter: gl.LINEAR, magFilter: gl.NEAREST });
 
 	// ---- Floor Setup ----
-	const { program: floorProgram, uniforms: floorUniforms } = createShaderProgram(gl, grassVert, grassFrag, ["uLightPos", "uLightColor", "uAmbientColor", "uShadowCube", "uShadowFar", "uModel", "uView", "uProj", "uGrass", "uWorldRadius", "uSeed", "uShellIndex","uShellOffset"]);
+	const { program: floorProgram, uniforms: floorUniforms } = createShaderProgram(gl, grassVert, grassFrag, ["uLightPos", "uLightColor", "uAmbientColor", "uShadowCube", "uShadowFar", "uModel", "uView", "uProj", "uGrass", "uWorldRadius", "uSeed", "uShellIndex","uShellOffset","uTime"]);
 
 	gl.useProgram(floorProgram);
 
@@ -122,6 +123,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	gl.uniform3f(floorUniforms.uAmbientColor, 0.25, 0.35, 0.45);
 	gl.uniform1f(floorUniforms.uShellIndex,0.0); // inital value
 	gl.uniform1f(floorUniforms.uShellOffset, 0.2);
+
 
 	// ---- Sun Setup ----
 	const { program: sunProgram, uniforms: sunUniforms } = createShaderProgram(gl, sunVert, sunFrag, ["uModel", "uView", "uProj", "uSunColor"]);
@@ -353,11 +355,11 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		gravityEnabled = result.gravityEnabled;
 		verticalVelocity = result.verticalVelocity;
 		lastFDown = result.lastFDown;
-		drawScene();
+		drawScene(now);
 		requestAnimationFrame(render);
 	}
 
-	function drawScene() {
+	function drawScene(now) {
 		// ---- Shadow Pass ----
 		gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFBO);
 		gl.viewport(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
@@ -461,7 +463,6 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		// ---- draw Balls ----
 		gl.useProgram(ballProgram);
 
-		// ---Textures -----
 		gl.activeTexture(gl.TEXTURE0);
 		gl.bindTexture(gl.TEXTURE_2D, ballTexture);
 		gl.uniform1i(ballUniforms.uFurTexture, 0);
@@ -492,6 +493,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 			mat4.scale(model, model, [3, 3, 3]);
 
 			// BAS
+			gl.uniform1f(ballUniforms.uTime,now);
 			gl.depthMask(true);
 			gl.disable(gl.BLEND);
 			gl.cullFace(gl.BACK);
@@ -518,6 +520,9 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		gl.uniform3fv(stemUniforms.uLightPos, sunPos);
 		gl.uniform3f(stemUniforms.uLightColor, 1.0, 0.99, 0.95);
 		gl.uniform3f(stemUniforms.uAmbientColor, 0.25, 0.35, 0.45);
+		gl.uniform1f(stemUniforms.uStemBaseZ, 0.0);
+		gl.uniform1f(stemUniforms.uStemTopZ, 12.0);
+		gl.uniform1f(stemUniforms.uTime, now);
 
 		gl.uniformMatrix4fv(stemUniforms.uView, false, viewMatrix);
 		gl.uniformMatrix4fv(stemUniforms.uProj, false, projMatrix);
@@ -628,6 +633,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
         //gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
         //gl.depthMask(false);
 		const grassShellCount = 100;
+		gl.uniform1f(floorUniforms.uTime, now);
 
 		if(fluffyGrass){
 			for (let i = 1; i < grassShellCount; i++) {
