@@ -17,7 +17,7 @@ const keys = {};
 const cameraState = { yaw: Math.PI / 2, pitch: -0.2 };
 const cameraPos = vec3.fromValues(0, -30, 15); // starting position
 let smoothedCameraPos = [...cameraPos];
-let gravityEnabled = false;
+let gravityEnabled = true;
 let verticalVelocity = 0;     // z-velocity
 const gravity = -69;        
 let lastFDown = false;
@@ -25,18 +25,18 @@ let lastTime = performance.now();
 
 const treePositions = [
 	[18, 22],
-	//[-32, 12],
-	//[-45, -20],
-	//[0, 60],
-	//[22, -38],
-	//[10, -8],
-	//[-14, -10],
-	//[6, 16],
-	//[-18, 20],
-	//[24, 6],
-	//[-22, -12],
-	//[12, 0],
-	//[0, 18]
+	[-32, 12],
+	[-45, -20],
+	[0, 60],
+	[22, -38],
+	[10, -8],
+	[-14, -10],
+	[6, 16],
+	[-18, 20],
+	[24, 6],
+	[-22, -12],
+	[12, 0],
+	[0, 18]
 ];
 
 main();
