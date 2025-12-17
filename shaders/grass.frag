@@ -165,7 +165,7 @@ void main() {
     float alpha;
     if(vShellIndex > 0.001){
 
-        const float HAIR_GRID = 100.0;
+        const float HAIR_GRID = 400.0;
 
         vec2 gridCoord =  vTexCoord * HAIR_GRID;
         vec2 cell      = floor(gridCoord);     

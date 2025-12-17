@@ -25,18 +25,18 @@ let lastTime = performance.now();
 
 const treePositions = [
 	[18, 22],
-	[-32, 12],
-	[-45, -20],
-	[0, 60],
-	[22, -38],
-	[10, -8],
-	[-14, -10],
-	[6, 16],
-	[-18, 20],
-	[24, 6],
-	[-22, -12],
-	[12, 0],
-	[0, 18]
+	//[-32, 12],
+	//[-45, -20],
+	//[0, 60],
+	//[22, -38],
+	//[10, -8],
+	//[-14, -10],
+	//[6, 16],
+	//[-18, 20],
+	//[24, 6],
+	//[-22, -12],
+	//[12, 0],
+	//[0, 18]
 ];
 
 main();
@@ -340,7 +340,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		lastFDown = result.lastFDown;
 		lastGDown = result.lastGDown;
 		fluffyGrass = result.fluffyGrass;
-		drawScene();
+		drawScene(now);
 		requestAnimationFrame(render);
 	}
 
@@ -601,7 +601,6 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		gl.uniform1f(floorUniforms.uShellIndex, 0.0);
 		drawFloorTiles(gl, floorUniforms, modelMatrix, tileSize, gridRadius, floorIndices, mat4);
 	
-		// Shells, utifrån och in
 		const grassShellCount = 100;
 		gl.uniform1f(floorUniforms.uTime, now);
 
