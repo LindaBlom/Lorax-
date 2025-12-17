@@ -1,14 +1,10 @@
-
-
-
-
-export function addEventListeners(gl, keys,cameraState, gravityEnabled, verticalVelocity, updateViewMatrix) {
+export function addEventListeners(gl, keys,cameraState, updateViewMatrix) {
 
 	window.addEventListener("keydown", (e) => {
 		const key = e.key;
 		keys[key.toLowerCase()] = true;   // w, a, s, d etc
 
-		if (key === "l" || key === "L") {
+		if (key.toLowerCase() === "l") {
 			const canvas = gl.canvas;
 			if (document.pointerLockElement === canvas) {
 				document.exitPointerLock();
@@ -59,26 +55,21 @@ export function addEventListeners(gl, keys,cameraState, gravityEnabled, vertical
 		let dx, dy;
 
 		if (isPointerLocked) {
-			// Pointer locked: browser gives relative movement
 			dx = e.movementX;
 			dy = e.movementY;
 		} else if (isDragging) {
-			// Old behaviour: drag with left mouse pressed
 			dx = e.clientX - lastMouseX;
 			dy = e.clientY - lastMouseY;
 
 			lastMouseX = e.clientX;
 			lastMouseY = e.clientY;
 		} else {
-			// Not dragging and not locked → ignore
 			return;
 		}
 
-		// convert pixels → radians
 		cameraState.yaw   -= dx * mouseSensitivity; // left/right
 		cameraState.pitch -= dy * mouseSensitivity; // up/down
 
-		// clamp pitch so you can’t flip over
 		const maxPitch = Math.PI / 2 - 0.1;
 		if (cameraState.pitch > maxPitch) cameraState.pitch = maxPitch;
 		if (cameraState.pitch < -maxPitch) cameraState.pitch = -maxPitch;

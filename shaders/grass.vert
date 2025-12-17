@@ -17,7 +17,6 @@ out vec3 vWorldPos;
 out vec3 vNormal;
 out float vShellIndex;
 
-
 float hash(vec2 p) {
     p = vec2(
         dot(p, vec2(127.1, 311.7)),
@@ -30,7 +29,7 @@ float getHeight(vec2 pos) {
     float wave =0.5 * sin(pos.x * 0.18) *cos(pos.y * 0.18);
 
     float n = hash(pos * 0.12);
-    float noise = (n - 0.5) * 0.25;   // ~[-0.2, 0.2]
+    float noise = (n - 0.5) * 0.25;
 
     float height = (wave + noise) * 3.0;
     return height;
@@ -42,11 +41,9 @@ void main() {
     vec4 worldPos4 = uModel * vec4(aPosition, 1.0);
     vec3 worldPos  = worldPos4.xyz;
 
-    // original height logic, now via getHeight()
     float height = getHeight(worldPos.xy);
     worldPos.z += height;
 
-    /* --- NEW: approximate normal from height field --- */
     float eps = 0.1;
     float hL = getHeight(worldPos.xy - vec2(eps, 0.0));
     float hR = getHeight(worldPos.xy + vec2(eps, 0.0));

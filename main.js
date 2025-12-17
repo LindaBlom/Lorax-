@@ -7,8 +7,10 @@ import {updateCamera} from "./helpers/camera.js";
 const mat4 = glMatrix.mat4;
 const vec3 = glMatrix.vec3;
 const WORLD_RADIUS = 75.0;
+const STEM_BASE_OFFSET = -1.0; // world-space tweak so stem base touches ground
 const shellCount = 1000;
 let fluffyGrass = true;
+let lastGDown = false;
 
 // ---- perspective and camera setup ----
 const keys = {};
@@ -17,21 +19,28 @@ const cameraPos = vec3.fromValues(0, -30, 15); // starting position
 let smoothedCameraPos = [...cameraPos];
 let gravityEnabled = false;
 let verticalVelocity = 0;     // z-velocity
-const gravity = -69;        // tweak as you like
+const gravity = -69;        
 let lastFDown = false;
 let lastTime = performance.now();
 
 const treePositions = [
-	[0, 12],
-	//[-10, -5],
-	//[15, 8],
-	//[-20, 15],
-	//[25, -10],
+	[18, 22],
+	[-32, 12],
+	[-45, -20],
+	[0, 60],
+	[22, -38],
+	[10, -8],
+	[-14, -10],
+	[6, 16],
+	[-18, 20],
+	[24, 6],
+	[-22, -12],
+	[12, 0],
+	[0, 18]
 ];
 
 main();
 
-// ---- Main Application ----
 function main() {
 	console.log( document.querySelector("#gl-canvas"));
 	const canvas = document.querySelector("#gl-canvas");
@@ -100,7 +109,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	const stemUVBO = createBuffer(gl, stemData.texCoords, 2, 2);
 	const stemNBO = createBuffer(gl, stemData.normals, 1, 3);
 
-	const stemTexture = loadTexture(gl, "textures/birchWood.png", { minFilter: gl.LINEAR, magFilter: gl.NEAREST });
+	const stemTexture = loadTexture(gl, "textures/birchWood.png", {minFilter: gl.LINEAR, magFilter: gl.NEAREST});
 
 	// ---- Floor Setup ----
 	const { program: floorProgram, uniforms: floorUniforms } = createShaderProgram(gl, grassVert, grassFrag, ["uLightPos", "uLightColor", "uAmbientColor", "uShadowCube", "uShadowFar", "uModel", "uView", "uProj", "uGrass", "uWorldRadius", "uSeed", "uShellIndex","uShellOffset","uTime"]);
@@ -121,22 +130,21 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	gl.uniform3fv(floorUniforms.uLightPos, sunPos);
 	gl.uniform3f(floorUniforms.uLightColor, 1.0, 0.99, 0.95);
 	gl.uniform3f(floorUniforms.uAmbientColor, 0.25, 0.35, 0.45);
-	gl.uniform1f(floorUniforms.uShellIndex,0.0); // inital value
+	gl.uniform1f(floorUniforms.uShellIndex, 0.0);
 	gl.uniform1f(floorUniforms.uShellOffset, 0.2);
 
 
 	// ---- Sun Setup ----
-	const { program: sunProgram, uniforms: sunUniforms } = createShaderProgram(gl, sunVert, sunFrag, ["uModel", "uView", "uProj", "uSunColor"]);
+	const {program: sunProgram, uniforms: sunUniforms} = createShaderProgram(gl, sunVert, sunFrag, ["uModel", "uView", "uProj", "uSunColor"]);
 
 	const lightView = mat4.create();
 	const lightProj = mat4.create();
 	const lightVP = mat4.create();
-	const lightOrthoSize = 80.0;
 
 	// ---- Post-Processing Setup ----
-	const { program: postProgram, uniforms: postUniforms } = createShaderProgram(gl, postVert, bloomFrag, ["uScene"]);
+	const {program: postProgram, uniforms: postUniforms} = createShaderProgram(gl, postVert, bloomFrag, ["uScene"]);
 
-	const { program: shadowProgram, uniforms: shadowUniforms } = createShaderProgram(gl, shadowVert, shadowFrag, ["uModel", "uLightVP", "uSeed", "uLightPos", "uShadowFar"]);
+	const {program: shadowProgram, uniforms: shadowUniforms} = createShaderProgram(gl, shadowVert, shadowFrag, ["uModel", "uLightVP", "uSeed", "uLightPos", "uShadowFar"]);
 
     // fullscreen quad (NDC positions + texcoords)
     const quadVerts = new Float32Array([
@@ -154,10 +162,8 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
     gl.bindBuffer(gl.ARRAY_BUFFER, quadVBO);
     gl.bufferData(gl.ARRAY_BUFFER, quadVerts, gl.STATIC_DRAW);
 
-    // aPosition (location = 0)
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 4 * 4, 0);
     gl.enableVertexAttribArray(0);
-    // aTexCoord (location = 1)
     gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 4 * 4, 2 * 4);
     gl.enableVertexAttribArray(1);
 
@@ -181,17 +187,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 
 		// Color texture
 		gl.bindTexture(gl.TEXTURE_2D, sceneTex);
-		gl.texImage2D(
-			gl.TEXTURE_2D,
-			0,
-			gl.RGBA16F,
-			w,
-			h,
-			0,
-			gl.RGBA,
-			gl.HALF_FLOAT,
-			null
-		);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -217,7 +213,6 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		gl.bindRenderbuffer(gl.RENDERBUFFER, null);
     }
 	function handleResize() {
-		// If your main() resize already runs, this is still safe.
 		gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 
 		resizeSceneTargets();       // realloc sceneTex + sceneDepth
@@ -225,7 +220,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	}
 	window.addEventListener("resize", handleResize);
 
-	const SHADOW_MAP_SIZE = 1024; // start with 1024; point shadows cost 6x
+	const SHADOW_MAP_SIZE = 1024;
 	const SHADOW_NEAR = 1.0;
 	const SHADOW_FAR  = 220.0;
 
@@ -237,17 +232,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	gl.bindTexture(gl.TEXTURE_CUBE_MAP, shadowCubeTex);
 
 	for (let i = 0; i < 6; i++) {
-	gl.texImage2D(
-		gl.TEXTURE_CUBE_MAP_POSITIVE_X + i,
-		0,
-		gl.RGBA16F,
-		SHADOW_MAP_SIZE,
-		SHADOW_MAP_SIZE,
-		0,
-		gl.RGBA,
-		gl.HALF_FLOAT,
-		null
-	);
+		gl.texImage2D(gl.TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, gl.RGBA16F, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, 0, gl.RGBA, gl.HALF_FLOAT, null);
 	}
 
 	gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
@@ -270,7 +255,6 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	gl.bindTexture(gl.TEXTURE_CUBE_MAP, null);
 	gl.bindRenderbuffer(gl.RENDERBUFFER, null);
 
-    // call once now (canvas already resized earlier)
     resizeSceneTargets();
 
 	// set shadow texel size (used for PCF sampling in shaders)
@@ -291,10 +275,9 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		const target = vec3.create();
 		vec3.add(target, smoothedCameraPos, forward);
 
-		mat4.lookAt(viewMatrix, smoothedCameraPos, target, [0, 0, 1]); // Z-up
+		mat4.lookAt(viewMatrix, smoothedCameraPos, target, [0, 0, 1]);
 	}
 
-	// call once to initialize
 	updateViewMatrix();
 
 	const fovy = Math.PI / 4; // 45 degrees
@@ -302,16 +285,16 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	const far = 200.0;
 
 	function updateProjectionMatrix() {
-		const aspect = gl.canvas.width / gl.canvas.height; // use actual buffer size
+		const aspect = gl.canvas.width / gl.canvas.height;
 		mat4.perspective(projMatrix, fovy, aspect, near, far);
 	}
 	updateProjectionMatrix();
-	addEventListeners(gl, keys, cameraState ,gravityEnabled, verticalVelocity, updateViewMatrix);
+	addEventListeners(gl, keys, cameraState, updateViewMatrix);
 	
-	const segments = 10;              // increase this for more resolution (e.g. 40, 80)
+	const segments = 10;
 	const size     = 20.0;           
 
-	const { verts, inds } = buildFloorGeometry(segments, size);
+	const {verts, inds} = buildFloorGeometry(segments, size);
 	const floorVertices = new Float32Array(verts);
 	const floorIndices  = new Uint16Array(inds);
 
@@ -335,7 +318,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 
 	const grassTexture = loadTexture(gl, "textures/grass.png"); 
 
-	const { vertices: sunVertices, indices: sunIndices } = buildSunGeometry();
+	const {vertices: sunVertices, indices: sunIndices} = buildSunGeometry();
 
 	const sunVBO = gl.createBuffer();
 	gl.bindBuffer(gl.ARRAY_BUFFER, sunVBO);
@@ -348,14 +331,16 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 	requestAnimationFrame(render);
 
 	function render(now){
-		const deltaTime = Math.min((now - lastTime) / 1000, 0.05); // seconds, clamp
+		const deltaTime = Math.min((now - lastTime) / 1000, 0.05);
   		lastTime = now;
 		
-		const result = updateCamera({ keys, cameraState, gravityEnabled, verticalVelocity, cameraPos, seed, treePositions, updateViewMatrix, smoothedCameraPos, lastFDown, gravity, WORLD_RADIUS, applyGroundCollision, applyWorldBoundsCollision, applyTreeCollision, deltaTime});
+		const result = updateCamera({keys, cameraState, gravityEnabled, verticalVelocity, cameraPos, seed, treePositions, updateViewMatrix, smoothedCameraPos, lastFDown, gravity, WORLD_RADIUS, applyGroundCollision, applyWorldBoundsCollision, applyTreeCollision, deltaTime, fluffyGrass, lastGDown});
 		gravityEnabled = result.gravityEnabled;
 		verticalVelocity = result.verticalVelocity;
 		lastFDown = result.lastFDown;
-		drawScene(now);
+		lastGDown = result.lastGDown;
+		fluffyGrass = result.fluffyGrass;
+		drawScene();
 		requestAnimationFrame(render);
 	}
 
@@ -364,16 +349,16 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		gl.bindFramebuffer(gl.FRAMEBUFFER, shadowFBO);
 		gl.viewport(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
 		gl.enable(gl.DEPTH_TEST);
-		gl.disable(gl.CULL_FACE); // keep it simple first
+		gl.disable(gl.CULL_FACE);
 
 		// 6 cubemap face directions + up vectors
 		const faceTargets = [
-		{ dir: [ 1, 0, 0], up: [0,-1, 0] }, // +X
-		{ dir: [-1, 0, 0], up: [0,-1, 0] }, // -X
-		{ dir: [ 0, 1, 0], up: [0, 0, 1] }, // +Y
-		{ dir: [ 0,-1, 0], up: [0, 0,-1] }, // -Y
-		{ dir: [ 0, 0, 1], up: [0,-1, 0] }, // +Z
-		{ dir: [ 0, 0,-1], up: [0,-1, 0] }, // -Z
+			{ dir: [ 1, 0, 0], up: [0,-1, 0] }, // +X
+			{ dir: [-1, 0, 0], up: [0,-1, 0] }, // -X
+			{ dir: [ 0, 1, 0], up: [0, 0, 1] }, // +Y
+			{ dir: [ 0,-1, 0], up: [0, 0,-1] }, // -Y
+			{ dir: [ 0, 0, 1], up: [0,-1, 0] }, // +Z
+			{ dir: [ 0, 0,-1], up: [0,-1, 0] }, // -Z
 		];
 
 		// Point-light projection: 90° fov, aspect 1
@@ -386,15 +371,9 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 
 		for (let face = 0; face < 6; face++) {
 			// Attach cubemap FACE as render target
-			gl.framebufferTexture2D(
-				gl.FRAMEBUFFER,
-				gl.COLOR_ATTACHMENT0,
-				gl.TEXTURE_CUBE_MAP_POSITIVE_X + face,
-				shadowCubeTex,
-				0
-			);
+			gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_CUBE_MAP_POSITIVE_X + face, shadowCubeTex, 0);
 
-			gl.clearColor(1, 0, 0, 1); // optional debug: "far depth"
+			gl.clearColor(1, 0, 0, 1);
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 			// Look direction for this face
@@ -409,7 +388,7 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 			treePositions.forEach(([xCoord, yCoord]) => {
 				const model = mat4.create();
 				const ground = getHeightAt(xCoord, yCoord, seed);
-				mat4.translate(model, model, [xCoord, yCoord + 11, ground + 3]);
+				mat4.translate(model, model, [xCoord, yCoord + 11, ground + 3 + STEM_BASE_OFFSET]);
 				mat4.rotateX(model, model, Math.PI / 2);
 				mat4.scale(model, model, [3, 3, 3]);
 
@@ -426,7 +405,8 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 			treePositions.forEach(([xCoord, yCoord]) => {
 				const model = mat4.create();
 				const ground = getHeightAt(xCoord, yCoord, seed);
-				mat4.translate(model, model, [xCoord, yCoord, ground]);
+				// Match main pass and add shared base offset so stem sits flush
+				mat4.translate(model, model, [xCoord, yCoord, ground + STEM_BASE_OFFSET]);
 				mat4.rotateX(model, model, Math.PI / 2);
 				mat4.scale(model, model, [3, 3, 3]);
 
@@ -484,11 +464,10 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
     	gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
     	gl.enableVertexAttribArray(2);
 
-
 		treePositions.forEach(([xCoord, yCoord]) => {
 			const model = mat4.create();
 			const ground = getHeightAt(xCoord, yCoord, seed);
-			mat4.translate(model, model, [xCoord, yCoord+11, ground + 3]);
+			mat4.translate(model, model, [xCoord, yCoord + 11, ground + 3]);
 			mat4.rotateX(model, model, Math.PI / 2);
 			mat4.scale(model, model, [3, 3, 3]);
 
@@ -539,10 +518,10 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
     	gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 0, 0);
     	gl.enableVertexAttribArray(2);
 
-        treePositions.forEach(([xCoord, yCoord]) => {
-            const model = mat4.create();
-            const ground = getHeightAt(xCoord, yCoord, seed);
-            mat4.translate(model, model, [xCoord, yCoord, ground]);
+		treePositions.forEach(([xCoord, yCoord]) => {
+			const model = mat4.create();
+			const ground = getHeightAt(xCoord, yCoord, seed);
+			mat4.translate(model, model, [xCoord, yCoord, ground + STEM_BASE_OFFSET]);
 			mat4.rotateX(model, model, Math.PI / 2);
 			mat4.scale(model,model,[3,3,3]);
             gl.uniformMatrix4fv(stemUniforms.uModel, false, model);
@@ -552,22 +531,18 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		// --- draw sun first ---
 		mat4.identity(sunModelMatrix);
 
-		// place sun at its world position
 		mat4.translate(sunModelMatrix, sunModelMatrix, sunPos);
 
-		// build a rotation that cancels the camera rotation (billboard)
 		mat4.copy(sunBillboardRot, viewMatrix);
-		// remove translation from view matrix
+
 		sunBillboardRot[12] = 0.0;
 		sunBillboardRot[13] = 0.0;
 		sunBillboardRot[14] = 0.0;
-		// invert rotation to get camera orientation
+
 		mat4.invert(sunBillboardRot, sunBillboardRot);
 
-		// apply billboard rotation so quad faces camera
 		mat4.multiply(sunModelMatrix, sunModelMatrix, sunBillboardRot);
 
-		// scale to desired angular size
 		const sunSize = 10.0;
 		mat4.scale(sunModelMatrix, sunModelMatrix, [sunSize, sunSize, sunSize]);
 
@@ -576,12 +551,12 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 		gl.uniformMatrix4fv(sunUniforms.uView, false, viewMatrix);
 		gl.uniformMatrix4fv(sunUniforms.uProj, false, projMatrix);
 		gl.uniformMatrix4fv(sunUniforms.uModel, false, sunModelMatrix);
-		gl.uniform3f(sunUniforms.uSunColor, 1.0, 0.99, 0.95); // warm color
+		gl.uniform3f(sunUniforms.uSunColor, 1.0, 0.99, 0.95);
 
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
-		// configure attributes for sun (same as before)
+		// configure attributes for sun
 		gl.bindBuffer(gl.ARRAY_BUFFER, sunVBO);
 		gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 5 * 4, 0);
 		gl.enableVertexAttribArray(0);
@@ -619,19 +594,14 @@ function initializeScene(gl, grassVert, grassFrag, sunVert, sunFrag, ballVert,ba
 
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, floorEBO);
 
-		const tileSize = 20.0;     // your quad covers -10..10 ⇒ size 20
+		const tileSize = 20.0;
 		const gridRadius = 9;      // draws (2*4+1)^2 = 81 tiles
 		
 		//BASEN
-		//gl.depthMask(true);
-        //gl.disable(gl.BLEND);
 		gl.uniform1f(floorUniforms.uShellIndex, 0.0);
 		drawFloorTiles(gl, floorUniforms, modelMatrix, tileSize, gridRadius, floorIndices, mat4);
 	
 		// Shells, utifrån och in
-		//gl.enable(gl.BLEND);
-        //gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-        //gl.depthMask(false);
 		const grassShellCount = 100;
 		gl.uniform1f(floorUniforms.uTime, now);
 

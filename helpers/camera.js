@@ -1,11 +1,11 @@
 const vec3 = glMatrix.vec3;
 
 export function updateCamera(params) {
-    let { keys, cameraState, gravityEnabled, verticalVelocity, cameraPos, seed, treePositions, updateViewMatrix, smoothedCameraPos, lastFDown, gravity, WORLD_RADIUS, applyGroundCollision, applyWorldBoundsCollision, applyTreeCollision, deltaTime} = params;
+    let {keys, cameraState, gravityEnabled, verticalVelocity, cameraPos, seed, treePositions, updateViewMatrix, smoothedCameraPos, lastFDown, gravity, WORLD_RADIUS, applyGroundCollision, applyWorldBoundsCollision, applyTreeCollision, deltaTime, fluffyGrass, lastGDown} = params;
 
     const dt = Math.min(Math.max(deltaTime || 0, 0), 0.05);
 
-    const baseSpeed = 8.0; // units per second (tune this)
+    const baseSpeed = 8.0; 
     const moveSpeed = baseSpeed * (keys["shift"] ? 2.0 : 1.0);
     
 
@@ -13,6 +13,11 @@ export function updateCamera(params) {
         gravityEnabled = !gravityEnabled;
     }
     lastFDown = keys["f"];
+
+    if (keys["g"] && !lastGDown) {
+        fluffyGrass = !fluffyGrass;
+    }
+    lastGDown = keys["g"];
 
     if (keys[" "] && gravityEnabled && Math.abs(verticalVelocity) < 0.001){
         verticalVelocity = 30.0; // jump
@@ -48,7 +53,6 @@ export function updateCamera(params) {
         cameraPos[2] -= step;
     }
 
-    // arrow keys also rotate view (optional)
     const rotationSpeed = 1.5 * dt;
     if (keys["arrowleft"]) {
         cameraState.yaw += rotationSpeed;
@@ -72,7 +76,7 @@ export function updateCamera(params) {
     applyWorldBoundsCollision(cameraPos, WORLD_RADIUS);
     applyTreeCollision(cameraPos, treePositions, seed);
 
-    const smoothingPerSecond = 12.0;              // tune: 8..20
+    const smoothingPerSecond = 12.0;
     const alpha = 1.0 - Math.exp(-smoothingPerSecond * dt);
 
     for (let i = 0; i < 3; i++) {
@@ -81,5 +85,5 @@ export function updateCamera(params) {
 
     updateViewMatrix();
 
-    return { gravityEnabled, verticalVelocity, lastFDown };
+    return {gravityEnabled, verticalVelocity, lastFDown, fluffyGrass, lastGDown};
 }

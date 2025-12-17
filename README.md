@@ -55,6 +55,7 @@ Move around the Lorax world using the following controls:
 - **Shift (hold)** - Sprint  
 - **Space** - Jump  
 - **F** - Toggle gravity (float mode on/off)  
+- **G** - Toggle fluffy grass (on by default)
 - **L** - Lock the mouse cursor into the game  
 - **Esc** - Release/unlock the mouse cursor  
 

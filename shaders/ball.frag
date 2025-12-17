@@ -15,7 +15,6 @@ float hash(vec2 p) {
     return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
 }
 
-
 void main() {
     float alpha;
     if (vShellIndex < 0.001) {   
@@ -44,7 +43,6 @@ void main() {
         alpha = 1.0 - smoothstep(radius * 0.5, radius, dist);
         if (alpha < 0.05) discard;
     }
-
 
     vec3 uAmbientColor = vec3(0.45, 0.55, 0.70); 
     vec3 uLightColor = vec3(0.94, 0.75, 0.02); 

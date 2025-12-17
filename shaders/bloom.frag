@@ -6,10 +6,8 @@ out vec4 outColor;
 
 uniform sampler2D uScene;
 
-// How bright something must be (luminance) to bloom.
-// Since we're in HDR, this can be > 1.0.
-const float threshold      = 1.5;   // try 1.5–3.0
-const float bloomIntensity = 1.5;   // how strong the bloom halo is
+const float threshold      = 1.5; 
+const float bloomIntensity = 1.5;
 
 void main() {
     // HDR scene color
@@ -31,7 +29,6 @@ void main() {
 
     vec3 bloom = vec3(0.0);
 
-    // ---- helper to keep only very bright parts (by luminance) ----
     float lumBase = dot(base, vec3(0.2126, 0.7152, 0.0722));
     vec3 centerBright = (lumBase > threshold) ? base : vec3(0.0);
     bloom += centerBright * weights[0];
@@ -53,10 +50,8 @@ void main() {
         }
     }
 
-    // Combine: base HDR scene + bloom contribution
     vec3 color = base + bloom * bloomIntensity;
 
-    // Clamp to [0,1] for now (no fancy tone mapping yet)
     color = clamp(color, 0.0, 1.0);
 
     outColor = vec4(color, 1.0);
